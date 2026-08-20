@@ -8,27 +8,102 @@
 (defvar *resources* (make-hash-table :test #'equal))
 (defvar *names* (make-hash-table :test #'equal))
 (defvar *viewport* nil)
+(defvar *current-drawing-dim* 3)
 (defvar *transform* nil)
 (defvar *style* nil)
+j
+(defun on-plane-mat (u v p)
+  (mat-4-3 (list (vec-x u) (vec-x v) (vec-x p))
+           (list (vec-y u) (vec-y v) (vec-y p))
+           (list (vec-z u) (vec-z v) (vec-z p))
+           (list 0 0 1)))
 
 
-(defparameter +page-identity+ (mat-2-4 (list 1 0 0 0)
-                                       (list 0 1 0 0)))
+(defparameter +xy-plane-mat+ (on-plane-mat (vec-3 1 0 0)
+                                           (vec-3 0 1 0)
+                                           (vec-3 0 0 0)))
+
+(defparameter +yz-plane-mat+ (on-plane-mat (vec-3 0 1 0)
+                                           (vec-3 0 0 1)
+                                           (vec-3 0 0 0)))
+
+(defparameter +xz-plane-mat+ (on-plane-mat (vec-3 1 0 0)
+                                           (vec-3 0 0 1)
+                                           (vec-3 0 0 0)))
+
+(defparameter +drop-z+ (mat-3-4 (list 1 0 0 0)
+                                (list 0 1 0 0)
+                                (list 0 0 0 1)))
+
+(defparameter +placement-identity+ (mat-3 (list 1 0 0)
+                                          (list 0 1 0)
+                                          (list 0 0 1)))
 
 (defparameter +ortho-z+ (mat-4 (list 1 0 0 0)
                                (list 0 1 0 0)
                                (list 0 0 1 0)
                                (list 0 0 0 1)))
 
+
 (defclass viewport ()
   ((view :initarg :view :reader viewport-view
-         :type (array double-float (4 4)))
-   (page :initarg :page :reader viewport-page
-         :type (array double-float (2 4))))
-  (:default-initargs :view +ortho-z+ :page +page-identity+))
+         :type (array double-float (4 4))) ; 3D homogenous
+   (proj :initarg :proj :reader viewport-proj
+         :type (array double-float (4 4))) ; 3D homogenous
+   (placement :initarg :placement :reader viewport-placement
+              :type (array double-float (3 3)))) ; 2D homogenous
+  (:default-initargs :view +ortho-z+ :proj +ortho-z+ :placement +placement-identity+))
+
+;; If the viewport is non-perspective then we can treat clip->flatten as a matrix,
+;; So entire transformation chain is a single 2x3 matrix since clip->flatten is
+;; the 3x4 matrix which flattens to z=0 in clip space
+;; So the chain is 4x4 -> 4x4 -> (clip) 3x4 -> (3 x 3)  (2D homegneous) -> (2 x 3)
+
+;; If the viewport is non-perspective then we must operate on individual points
+;; and do the (x,y,z,w) -> (x/w,y/w,z/w) transformation to  go fomr 
+
+(defun pt2 (&rest coords)
+  (ecase (length coords)
+    (2 (vec-3 (first coords) (second coords) 1))))
+
+(defun pt3 (&rest coords)
+  (ecase (length coords)
+    (2 (vec-4 (first coords) (second coords) 0 1))
+    (3 (vec-4 (first coords) (second coords) (third coords) 1))))
+
+;; 4->3
+(defun clip->page (vec)
+  (let ((w (vec-w vec)))
+    (vec-3 (/ (vec-x vec) w) (/ (vec-y vec) w) 1)))
 
 
 
+
+
+(defun elem->eye (elem)
+  (mm-*
+   (viewport-view (element-viewport elem))
+   (element-transform elem)))
+
+(defun elem->clip (elem)
+  (m-4-*
+   (viewport-proj (element-viewport elem))
+   (elem->eye elem)))
+
+(defun elem->placement (elem vec)
+  (let ((ecm (elem->clip elem))
+        (place (viewport-placement (element-viewport elem))))
+    (mv-3-*
+     place
+     (clip->page (mv-* ecm vec)) )))
+
+(defun elem->placement-func (elem)
+  (let ((ecm (elem->clip elem))
+        (place (viewport-placement (element-viewport elem))))
+    (lambda (vec)
+      (mv-3-*
+       place
+       (clip->page (mv-* ecm vec)) ))))
 
 
 (defun merge-style (orig updates)
@@ -37,8 +112,6 @@
           do
              (setf (getf ret key) value))
     ret))
-
-
 
 
 (defclass element ()
@@ -55,9 +128,10 @@
   (if *print-readably*
       (call-next-method)
       (print-unreadable-object (obj stream :type t :identity t)
-        (format stream ":VIEW ~S :PAGE ~S"
+        (format stream ":VIEW ~S ~% :PROJ: ~S :PLACEMENT ~S"
                 (if (slot-boundp obj 'view) (viewport-view obj) :unbound)
-                (if (slot-boundp obj 'page) (viewport-page obj) :unbound)))))
+                (if (slot-boundp obj 'proj) (viewport-proj obj) :unbound)
+                (if (slot-boundp obj 'placement) (viewport-placement obj) :unbound)))))
 
 (defmethod print-object ((obj element) stream)
   (if *print-readably*
@@ -74,17 +148,11 @@
                 (if (slot-boundp obj 'boundary) (element-boundary obj) :unbound)))))
 
 
-
 (defun getf-elem (elem key)
-  (getf elem key))
-
+  (getf (element-params elem) key))
 
 (defclass resource ()
   ((id :initarg :id :reader resource-id)))
-
-
-(defclass clip (resource) ())
-
 
 (defun emit (type &rest params
                   &key transform viewport style clip name  anchor boundary
@@ -117,12 +185,6 @@
     (when name
       (setf (gethash (cons name v) *names*) element))))
 
-
-
-
-
-
-
 (defun resolution ()
   (loop while *pending* do
     (resolve (pop *pending*))))
@@ -148,7 +210,8 @@
 
 
 (defmacro with-transform (transform &rest body)
-  `(let ((*transform* ,transform))
+  `(let ((*transform* ,transform)
+         (*current-drawing-dim* (array-dimension transform 1)))
      ,@body))
 
 (defmacro with-style (style &rest body)
@@ -159,15 +222,6 @@
   `(let ((*viewport* ,v))
      ,@body))
 
-(defun elem->eye (elem)
-  (m-4-*
-   (viewport-view (element-viewport elem))
-   (element-transform elem)))
-
-(defun elem->page (elem)
-  (m-2-4-*
-   (viewport-page (element-viewport elem))
-   (elem->eye elem)))
 
 
 (defun resolve-name (name &optional viewport)
@@ -182,35 +236,23 @@
      (mv-4-* (element-transform e) p))))
 
 
-(defun page-at (name anchor  &optional (viewport *viewport*) )
-  (delay
-   (let* ((e (resolve-name name viewport))
-          (tr (elem->page e)))
-     (mv-2-4-* tr
-               (funcall (element-anchor e) anchor)))))
-
-
-(defun is-page-point (vec)
-  (= (array-dimension vec 0) 2))
 
 (defun test2 ()
-  (with-viewport
-      (make-instance 'viewport :view (mat-4-rot-x 30))
-    (emit :segment :start (delay 2)
-                   :end (vec-4 1 1 0 1)
+  (with-viewport *viewport*
+    ;; (make-instance 'viewport :view (mat-4-rot-x 30))
+    (emit :segment :points (list :L (vec-4 1 1 0 1) :L (vec-4 1 1 1 1))
                    :name 's1
                    :anchor (lambda (x)
                              (ecase x
                                (:end (vec-4 40 1 0 1))
                                (:start (vec-4 -25 1 0 1))
                                )))
-    (emit :segment :start (at 's1 :end)
-                   :end (page-at 's1 :start))
     ))
 
-(process #'test2)
 
-
+(let ((r (make-instance 'svg-backend))
+      (e (process #'test2)))
+  (render-element r :path (first ( first e))))
 
 
 

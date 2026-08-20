@@ -187,10 +187,47 @@
 (make-ops-for-dim 2)
 (make-ops-for-dim 3)
 (make-ops-for-dim 4)
-(make-ops-for-dim 4 3)
-(make-ops-for-dim 4 2)
+
 (make-ops-for-dim 3 2)
+(make-ops-for-dim 2 3)
+
+(make-ops-for-dim 3 4)
+(make-ops-for-dim 4 3)
+
+(make-ops-for-dim 4 2)
 (make-ops-for-dim 2 4)
+(make-matmat 3 3 4 double-float)
+
+(defun mm-* (mat1 mat2 &rest rest)
+  (declare 
+   (type (simple-array double-float (* *)) mat1)
+   (type (simple-array double-float (* *)) mat2))
+  (let* ((n (array-dimension mat1 0))
+         (m (array-dimension mat2 1))
+         (l (array-dimension mat2 1))
+         (result (make-array (list n l) :element-type 'double-float)))
+    (loop for i below n do
+      (loop for k below l do
+        (setf (aref result i k)
+              (loop for j below m
+                    sum (* (aref mat1 i j) (aref mat2 j k)) double-float))))
+    (if (not rest)
+        result
+        (apply #'mm-* result rest))))
+
+(defun mv-* (mat vec)
+  (declare 
+   (type (simple-array double-float (* *)) mat)
+   (type (simple-array double-float (*)) vec))
+  (let* ((n (array-dimension mat 0))
+         (m (array-dimension mat 1))
+         (result (make-array (list n) :element-type 'double-float)))
+    (loop for i below n do
+      (setf (aref result i) 
+            (loop for j below m
+                  sum (* (aref vec j) (aref mat i j)) double-float)))
+    result))
+
 
 
 (defun vec-x (vec) (aref vec 0))
