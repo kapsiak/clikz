@@ -1,30 +1,36 @@
 (in-package :quickdraw)
 
+
+(defmacro speedmode ()
+  ``(optimize (speed 0) (safety 3)))
+
 (defmacro make-matvec (n &optional m? (element-type 'double-float))
   (let ((m (or m? n)))
     `(defun ,(intern (format nil "MV-~d~@[-~d~]-*" n m?))
          (mat vec
-          &optional (result (make-array ,m :element-type ',element-type)))
-       (declare (optimize (speed 3) (safety 0))
+          &optional (result (make-array ,n :element-type ',element-type)))
+       (declare ,(speedmode)
                 (type (simple-array ,element-type (,n ,m)) mat)
-                (type (simple-array ,element-type (,m)) result)
-                (type (simple-array ,element-type (,n)) vec))
+                (type (simple-array ,element-type (,n)) result)
+                (type (simple-array ,element-type (,m)) vec))
        (loop for i below ,n do
          (setf (aref result i) 
                (loop for j below ,m
                      sum (* (aref vec j) (aref mat i j)) ,element-type)))
        result)))
 
+
+
 (defmacro make-matmat (n &optional m? l? (element-type 'double-float))
   (let* ((m (or m? n))
          (l (or l? m)))
     `(defun ,(intern (format nil "M-~d~@[-~d~]~@[-~d~]-*" n m? l?))
          (mat1 mat2
-          &optional (result (make-array (list ,m ,l) :element-type ',element-type)))
-       (declare (optimize (speed 3) (safety 0))
+          &optional (result (make-array (list ,n ,l) :element-type ',element-type)))
+       (declare ,(speedmode)
                 (type (simple-array ,element-type (,n ,m)) mat1)
                 (type (simple-array ,element-type (,m ,l)) mat2)
-                (type (simple-array ,element-type (,m ,l)) result))
+                (type (simple-array ,element-type (,n ,l)) result))
 
        (loop for i below ,n do
          (loop for k below ,l do
@@ -49,7 +55,7 @@
   `(defun ,(intern (format nil "SV-~d-*" n))
        (val vec
         &optional (result (make-array ,n :element-type ',element-type)))
-     (declare (optimize (speed 3) (safety 0))
+     (declare ,(speedmode)
               (type ,element-type val)
               (type (simple-array ,element-type (,n)) vec)
               (type (simple-array ,element-type (,n)) result))
@@ -61,7 +67,7 @@
   `(defun ,(intern (format nil "V-~d-+" n))
        (vec1 vec2
         &optional (result (make-array ,n :element-type ',element-type)))
-     (declare (optimize (speed 3) (safety 0))
+     (declare ,(speedmode)
               (type (simple-array ,element-type (,n)) vec1)
               (type (simple-array ,element-type (,n)) vec2)
               (type (simple-array ,element-type (,n)) result))
@@ -75,7 +81,7 @@
     `(defun ,(intern (format nil "SM-~d~@[-~d~]-*" n m?))
          (val mat
           &optional (result (make-array (list ,n ,m) :element-type ',element-type)))
-       (declare (optimize (speed 3) (safety 0))
+       (declare ,(speedmode)
                 (type ,element-type val)
                 (type (simple-array ,element-type (,n ,m)) mat)
                 (type (simple-array ,element-type (,n ,m)) result))
@@ -89,7 +95,7 @@
     `(defun ,(intern (format nil "M-~d~@[-~d~]-T" n m?))
          (mat 
           &optional (result (make-array (list ,m ,n) :element-type ',element-type)))
-       (declare (optimize (speed 3) (safety 0))
+       (declare ,(speedmode)
                 (type (simple-array ,element-type (,n ,m)) mat)
                 (type (simple-array ,element-type (,m ,n)) result))
        (loop for i below ,n do
@@ -103,7 +109,7 @@
     `(defun ,(intern (format nil "M-~d~@[-~d~]-+" n m?))
          (mat1 mat2
           &optional (result (make-array (list ,n ,m) :element-type ',element-type)))
-       (declare (optimize (speed 3) (safety 0))
+       (declare ,(speedmode)
                 (type (simple-array ,element-type (,n ,m)) mat1)
                 (type (simple-array ,element-type (,n ,m)) mat2)
                 (type (simple-array ,element-type (,n ,m)) result))
@@ -169,12 +175,12 @@
      (make-matmat ,n ,m nil ,element-type)
      (make-mat-maker ,n :dim2 ,m :element-type ,element-type)
      (make-transpose-mat ,n ,m ,element-type)
-     ,(when (eql n m)
+     (make-matvec ,n ,m ,element-type)
+     ,(unless m
         `(progn
            (make-scale-vec ,n ,element-type)
            (make-vec-+ ,n ,element-type)
            (make-dot ,n ,element-type)
-           (make-matvec ,n ,m ,element-type)
            (make-vec-maker ,n :element-type ,element-type)))))
 
 
@@ -228,24 +234,24 @@
     (mat-4
      (list 1 0 0 0)
      (list 0 (cos rad) (- (sin rad)) 0)
-     (list  0 (sin rad) (cos rad)) 0)
-    (list 0 0 0 1)))
+     (list  0 (sin rad) (cos rad) 0)
+     (list 0 0 0 1))))
 
 (defun mat-4-rot-y (angle)
   (let ((rad (deg-to-rad angle)))
     (mat-4
      (list (cos rad) 0  (- (sin rad)) 0)
      (list 0 1 0 0)
-     (list (sin rad) 0  (cos rad)) 0)
+     (list (sin rad) 0  (cos rad) 0))
     (list 0 0 0 1)))
 
 (defun mat-4-rot-z (angle)
   (let ((rad (deg-to-rad angle)))
     (mat-4
      (list (cos rad)  (- (sin rad)) 0 0)
+     (list (sin rad)   (cos rad)  0 0 )
      (list 0 0 1 0)
-     (list (sin rad)   (cos rad))  0 0)
-    (list 0 0 0 1)))
+     (list 0 0 0 1))))
 
 (defun mat-4-translate (x y z)
   (mat-4
@@ -273,3 +279,5 @@
            (list 0 1 0 0)))
 
 
+(defun compose-4 (&rest transforms)
+  (reduce #'m-4-* (reverse transforms)))
