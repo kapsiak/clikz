@@ -279,8 +279,8 @@
     (mat-4
      (list (cos rad) 0  (- (sin rad)) 0)
      (list 0 1 0 0)
-     (list (sin rad) 0  (cos rad) 0))
-    (list 0 0 0 1)))
+     (list (sin rad) 0  (cos rad) 0)
+     (list 0 0 0 1))))
 
 (defun mat-4-rot-z (angle)
   (let ((rad (deg-to-rad angle)))
