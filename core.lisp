@@ -247,10 +247,10 @@
                (gethash (cons name  *viewport*) *names*)
                (error "Bad key"))))
 
-(defun at (name anchor &optional (viewport *viewport*) )
+(defun at (name args &optional (viewport *viewport*) )
   (delay
    (let* ((e (resolve-name name viewport))
-          (p (funcall (element-anchor e) anchor)))
+          (p (apply (element-anchor e) args)))
      (mv-4-* (element-transform e) p))))
 
 
