@@ -2,21 +2,11 @@
 
 (declaim (optimize (speed 0) (space 0) (safety 3) (debug 3)))
 
-(defvar *elements* nil)
-(defvar *pending* nil)
-(defvar *clip* nil)
-(defvar *resources* (make-hash-table :test #'equal))
-(defvar *names* (make-hash-table :test #'equal))
-(defvar *viewport* nil)
-(defvar *current-drawing-dim* 3)
-(defvar *transform* nil)
-(defvar *style* nil)
 (defun on-plane-mat (u v p)
   (mat-4-3 (list (vec-x u) (vec-x v) (vec-x p))
            (list (vec-y u) (vec-y v) (vec-y p))
            (list (vec-z u) (vec-z v) (vec-z p))
            (list 0 0 1)))
-
 
 (defparameter +xy-plane-mat+ (on-plane-mat (vec-3 1 0 0)
                                            (vec-3 0 1 0)
@@ -42,6 +32,46 @@
                                (list 0 1 0 0)
                                (list 0 0 1 0)
                                (list 0 0 0 1)))
+
+(defparameter +identity-4+ (mat-4 (list 1 0 0 0)
+                               (list 0 1 0 0)
+                               (list 0 0 1 0)
+                               (list 0 0 0 1)))
+
+
+(defvar *elements* nil)
+(defvar *pending* nil)
+(defvar *clip* nil)
+(defvar *resources* (make-hash-table :test #'equal))
+(defvar *names* (make-hash-table :test #'equal))
+(defvar *viewport* nil)
+(defvar *current-drawing-dim* 3)
+(defvar *transform* +identity-4+)
+(defvar *style* nil)
+
+(defun merge-style (orig updates)
+  (let (( ret (copy-tree  orig)))
+    (loop for (key value) on updates by #'cddr
+          do
+             (setf (getf ret key) value))
+    ret))
+
+
+(defmacro with-transform (transform &rest body)
+  `(let ((*transform* (mm-* ,transform *transform* ))
+         (*current-drawing-dim* (array-dimension ,transform 1)))
+     ,@body))
+
+(defmacro with-style (style &rest body)
+  `(let ((*style* (merge-style *style* ,style)))
+     ,@body))
+
+(defmacro with-viewport (v &rest body)
+  `(let ((*viewport* ,v))
+     ,@body))
+
+
+
 
 
 (defclass viewport ()
@@ -110,12 +140,6 @@
        (clip->page (mv-* ecm vec)) ))))
 
 
-(defun merge-style (orig updates)
-  (let (( ret (copy-tree  orig)))
-    (loop for (key value) on updates by #'cddr
-          do
-             (setf (getf ret key) value))
-    ret))
 
 
 (defclass element ()
@@ -166,6 +190,7 @@
         (tr (or transform *transform*))
         (c (or clip *clip*))
         (v (or viewport *viewport*)))
+    (print tr)
     
     (if (deep-delayed-p params)
         (progn 
@@ -214,18 +239,6 @@
     (list *elements* *resources*)))
 
 
-(defmacro with-transform (transform &rest body)
-  `(let ((*transform* ,transform)
-         (*current-drawing-dim* (array-dimension ,transform 1)))
-     ,@body))
-
-(defmacro with-style (style &rest body)
-  `(let ((*style* ,(merge-style *style* style)))
-     ,@body))
-
-(defmacro with-viewport (v &rest body)
-  `(let ((*viewport* ,v))
-     ,@body))
 
 
 
@@ -239,61 +252,5 @@
    (let* ((e (resolve-name name viewport))
           (p (funcall (element-anchor e) anchor)))
      (mv-4-* (element-transform e) p))))
-
-
-(defun draw-path (&rest points &key style)
-  (emit :path :points points
-              :name 's1
-              :style (merge-style *style* style)))
-
-
-
-(progn 
-  (defun test2 ()
-    (with-viewport *viewport*
-      (with-style '(:stroke "blue")
-        (emit :path :points (list :M (p 300 0)  :L (p 0 300))
-                    :anchor (lambda (x)
-                              (ecase x
-                                (:end (vec-4 40 1 0 1))
-                                (:start (vec-4 -25 1 0 1))
-                                ))))
-      (with-style '(:stroke "orange" :stroke-width 2)
-        (emit :path :points (list
-                             :M (p 50 50)
-                             :L (at 's1 nil)
-                             :L (p 100 100)
-                             :L (p 50 100)
-                             :L (p 50 50)
-                             )))
-      (with-transform (mat-4-rot-x 45)
-        (with-style '(:stroke "red")
-          (emit :path :points (list
-                               :M (p 50 50)
-                               :L (p 100 50)
-                               :L (p 100 100)
-                               :L (p 50 100)
-                               :L (p 50 50)
-                               )
-                      :name 's1
-                      :anchor (lambda (x)
-                                (p 50 50)))))))
-
-
-  (let ((r (make-instance 'svg-backend))
-        (e (process #'test2)))
-    (init-backend r)
-    (loop for elem in (first e) do
-      (render-element r (element-type elem) elem))
-    (with-open-file (x "test.svg"
-                       :direction :output
-                       :if-exists :overwrite
-                       :if-does-not-exist :create)
-      (write-string (svg-to-string r)  x)))
-  )
-
-
-
-
 
 

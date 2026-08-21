@@ -5,7 +5,12 @@
   :components ((:file "quickdraw-package")
                (:file "linalg")
                (:file "util")
-               (:file "core")))
+               (:file "core")
+               (:file "backend")
+               (:file "backend-svg")
+               (:file "testground")))
+
+
 
 
 
