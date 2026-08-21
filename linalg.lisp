@@ -300,9 +300,9 @@
 
 (defun look-at (pos at up right)
   (m-4-* (mat-4
-          (list (vec-x up) (vec-y up) (vec-z up))
-          (list (vec-x right) (vec-y right) (vec-z right))
-          (list (vec-x at) (vec-y at) (vec-z at))
+          (list (vec-x up) (vec-y up) (vec-z up) 0)
+          (list (vec-x right) (vec-y right) (vec-z right) 0)
+          (list (vec-x at) (vec-y at) (vec-z at) 0)
           (list 0 0 0 1))
 
          (mat-4
