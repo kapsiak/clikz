@@ -4,7 +4,7 @@
 (defstruct delayed
   value
   (state :unresolved)
-  function)
+  function) 
 
 
 (defun resolve (val)
@@ -31,11 +31,22 @@
                    (mapcar #'resolve args))))))
 
 
-                       
+
+
+(defun deep-delayed-p (l)
+  (cond
+    ((consp l)
+     (or (deep-delayed-p (first l)) (deep-delayed-p (rest l))))
+    (t
+     (delayed-p l))))
 
 
 
-
-
+(defun deep-resolve (l)
+  (cond
+    ((consp l)
+     (cons (deep-resolve (first l)) (deep-resolve (rest l))))
+    (t
+     (resolve l))))
 
 

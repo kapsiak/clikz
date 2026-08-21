@@ -11,7 +11,6 @@
 (defvar *current-drawing-dim* 3)
 (defvar *transform* nil)
 (defvar *style* nil)
-j
 (defun on-plane-mat (u v p)
   (mat-4-3 (list (vec-x u) (vec-x v) (vec-x p))
            (list (vec-y u) (vec-y v) (vec-y p))
@@ -62,14 +61,19 @@ j
 ;; If the viewport is non-perspective then we must operate on individual points
 ;; and do the (x,y,z,w) -> (x/w,y/w,z/w) transformation to  go fomr 
 
-(defun pt2 (&rest coords)
-  (ecase (length coords)
-    (2 (vec-3 (first coords) (second coords) 1))))
 
-(defun pt3 (&rest coords)
-  (ecase (length coords)
-    (2 (vec-4 (first coords) (second coords) 0 1))
-    (3 (vec-4 (first coords) (second coords) (third coords) 1))))
+(defun p (&rest coords)
+  (ecase *current-drawing-dim*
+    (2 (ecase (length coords)
+         (2 (vec-3 (first coords) (second coords) 1))))
+    (3
+     (ecase (length coords)
+       (2 (vec-4 (first coords) (second coords) 0 1))
+       (3 (vec-4 (first coords) (second coords) (third coords) 1))))
+    (4
+     (ecase (length coords)
+       (2 (vec-4 (first coords) (second coords) 0 1))
+       (3 (vec-4 (first coords) (second coords) (third coords) 1))))))
 
 ;; 4->3
 (defun clip->page (vec)
@@ -163,16 +167,17 @@ j
         (c (or clip *clip*))
         (v (or viewport *viewport*)))
     
-    (if (some #'delayed-p params)
+    (if (deep-delayed-p params)
         (progn 
           (setq element (delay
-                         (let ((r (make-instance 'element
-                                    :type type
-                                    :transform tr :viewport v :style  s :clip c
-                                    :anchor anchor :boundary boundary
-                                    :params (mapcar #'resolve params))))
-                           (push r *elements*)
-                           r)))
+                         (with-transform tr
+                           (let ((r (make-instance 'element
+                                      :type type
+                                      :transform tr :viewport v :style  s :clip c
+                                      :anchor anchor :boundary boundary
+                                      :params (deep-resolve params))))
+                             (push r *elements*)
+                             r))))
           (push element *pending*))
         (progn 
           (setq element 
@@ -211,7 +216,7 @@ j
 
 (defmacro with-transform (transform &rest body)
   `(let ((*transform* ,transform)
-         (*current-drawing-dim* (array-dimension transform 1)))
+         (*current-drawing-dim* (array-dimension ,transform 1)))
      ,@body))
 
 (defmacro with-style (style &rest body)
@@ -236,23 +241,59 @@ j
      (mv-4-* (element-transform e) p))))
 
 
-
-(defun test2 ()
-  (with-viewport *viewport*
-    ;; (make-instance 'viewport :view (mat-4-rot-x 30))
-    (emit :segment :points (list :L (vec-4 1 1 0 1) :L (vec-4 1 1 1 1))
-                   :name 's1
-                   :anchor (lambda (x)
-                             (ecase x
-                               (:end (vec-4 40 1 0 1))
-                               (:start (vec-4 -25 1 0 1))
-                               )))
-    ))
+(defun draw-path (&rest points &key style)
+  (emit :path :points points
+              :name 's1
+              :style (merge-style *style* style)))
 
 
-(let ((r (make-instance 'svg-backend))
-      (e (process #'test2)))
-  (render-element r :path (first ( first e))))
+
+(progn 
+  (defun test2 ()
+    (with-viewport *viewport*
+      (with-style '(:stroke "blue")
+        (emit :path :points (list :M (p 300 0)  :L (p 0 300))
+                    :anchor (lambda (x)
+                              (ecase x
+                                (:end (vec-4 40 1 0 1))
+                                (:start (vec-4 -25 1 0 1))
+                                ))))
+      (with-style '(:stroke "orange" :stroke-width 2)
+        (emit :path :points (list
+                             :M (p 50 50)
+                             :L (at 's1 nil)
+                             :L (p 100 100)
+                             :L (p 50 100)
+                             :L (p 50 50)
+                             )))
+      (with-transform (mat-4-rot-x 45)
+        (with-style '(:stroke "red")
+          (emit :path :points (list
+                               :M (p 50 50)
+                               :L (p 100 50)
+                               :L (p 100 100)
+                               :L (p 50 100)
+                               :L (p 50 50)
+                               )
+                      :name 's1
+                      :anchor (lambda (x)
+                                (p 50 50)))))))
+
+
+  (let ((r (make-instance 'svg-backend))
+        (e (process #'test2)))
+    (init-backend r)
+    (loop for elem in (first e) do
+      (render-element r (element-type elem) elem))
+    (with-open-file (x "test.svg"
+                       :direction :output
+                       :if-exists :overwrite
+                       :if-does-not-exist :create)
+      (write-string (svg-to-string r)  x)))
+  )
+
+
+
 
 
 
