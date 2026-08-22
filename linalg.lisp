@@ -1,12 +1,20 @@
 (in-package :quickdraw)
 
+(defconstant +epsilon+ 1d-9)
 
 (defmacro speedmode ()
   ``(optimize (speed 0) (safety 3)))
 
+
+(defun symbol-for-dims (prefix postfix &rest dims)
+  (intern (format nil "~a-~{~d~^-~}~@[-~a~]" (string-upcase prefix)
+                  (remove-if #'not dims)
+                  (string-upcase postfix))
+          :quickdraw))
+
 (defmacro make-matvec (n &optional m? (element-type 'double-float))
   (let ((m (or m? n)))
-    `(defun ,(intern (format nil "MV-~d~@[-~d~]-*" n m?))
+    `(defun ,(symbol-for-dims "MV" "*" n m?)
          (mat vec
           &optional (result (make-array ,n :element-type ',element-type)))
        (declare ,(speedmode)
@@ -19,12 +27,10 @@
                      sum (* (aref vec j) (aref mat i j)) ,element-type)))
        result)))
 
-
-
 (defmacro make-matmat (n &optional m? l? (element-type 'double-float))
   (let* ((m (or m? n))
          (l (or l? m)))
-    `(defun ,(intern (format nil "M-~d~@[-~d~]~@[-~d~]-*" n m? l?))
+    `(defun ,(symbol-for-dims "MM" "*" n m? l?)
          (mat1 mat2
           &optional (result (make-array (list ,n ,l) :element-type ',element-type)))
        (declare ,(speedmode)
@@ -39,20 +45,19 @@
                        sum (* (aref mat1 i j) (aref mat2 j k)) ,element-type))))
        result)))
 
+
+
 (defmacro make-dot (n &optional (element-type 'double-float))
-  `(defun ,(intern (format nil "V-~d-*" n)) (v1 v2)
+  `(defun ,(symbol-for-dims "V" "*" n) (v1 v2)
      (declare (optimize (speed 3) (safety 0))
               (type (simple-array ,element-type (,n)) v1)
               (type (simple-array ,element-type (,n)) v2))
-     (let (result)
-       (loop for i below ,n
-             sum (* (aref v1 i) (aref v2 i)) ,element-type)
-       result)))
-
+     (loop for i below ,n
+           sum (* (aref v1 i) (aref v2 i)) ,element-type)))
 
 
 (defmacro make-scale-vec (n &optional (element-type 'double-float))
-  `(defun ,(intern (format nil "SV-~d-*" n))
+  `(defun ,(symbol-for-dims "SV" "*" n)
        (val vec
         &optional (result (make-array ,n :element-type ',element-type)))
      (declare ,(speedmode)
@@ -63,8 +68,21 @@
        (setf (aref result i) (* val (aref vec i))))
      result))
 
+
+
+(defmacro make-vec-norm (n &optional (element-type 'double-float))
+  (let ((sv  (symbol-for-dims "SV" "*" n))
+        (dot (symbol-for-dims "V" "*" n)))
+    `(defun ,(intern (format nil "VNORM-~d-*" n)) (vec)
+       (declare ,(speedmode)
+                (type (simple-array ,element-type (,n)) vec))
+       (,sv (sqrt (,dot vec vec)) vec))))
+
+
+
+
 (defmacro make-vec-+ (n &optional (element-type 'double-float))
-  `(defun ,(intern (format nil "V-~d-+" n))
+  `(defun ,(symbol-for-dims "V" "+" n)
        (vec1 vec2
         &optional (result (make-array ,n :element-type ',element-type)))
      (declare ,(speedmode)
@@ -76,9 +94,22 @@
              (+  ( aref vec1 i) ( aref vec2 i))))
      result))
 
+(defmacro make-vec-- (n &optional (element-type 'double-float))
+  `(defun ,(symbol-for-dims "V" "-" n)
+       (vec1 vec2
+        &optional (result (make-array ,n :element-type ',element-type)))
+     (declare ,(speedmode)
+              (type (simple-array ,element-type (,n)) vec1)
+              (type (simple-array ,element-type (,n)) vec2)
+              (type (simple-array ,element-type (,n)) result))
+     (loop for i below ,n do
+       (setf (aref result i)
+             (-  ( aref vec1 i) ( aref vec2 i))))
+     result))
+
 (defmacro make-scale-mat (n &optional m? (element-type 'double-float))
   (let* ((m (or m? n)))
-    `(defun ,(intern (format nil "SM-~d~@[-~d~]-*" n m?))
+    `(defun ,(symbol-for-dims "SV" "*" n m)
          (val mat
           &optional (result (make-array (list ,n ,m) :element-type ',element-type)))
        (declare ,(speedmode)
@@ -92,7 +123,7 @@
 
 (defmacro make-transpose-mat (n &optional m? (element-type 'double-float))
   (let* ((m (or m? n)))
-    `(defun ,(intern (format nil "M-~d~@[-~d~]-T" n m?))
+    `(defun ,(symbol-for-dims "M" "T" n m)
          (mat 
           &optional (result (make-array (list ,m ,n) :element-type ',element-type)))
        (declare ,(speedmode)
@@ -106,7 +137,7 @@
 
 (defmacro make-mat-+ (n &optional m? (element-type 'double-float))
   (let* ((m (or m? n)))
-    `(defun ,(intern (format nil "M-~d~@[-~d~]-+" n m?))
+    `(defun ,(symbol-for-dims "M" "+" n m)
          (mat1 mat2
           &optional (result (make-array (list ,n ,m) :element-type ',element-type)))
        (declare ,(speedmode)
@@ -119,28 +150,26 @@
 
        result)))
 
-(defmacro make-mat-maker (dim &key dim2 (element-type 'double-float)  postfix )
-  (let ((f (format nil "MAT-~d~@[-~d~]~@[-~a~]" dim dim2 postfix))
-        (d2 (or dim2 dim)))
+(defmacro make-mat-maker (dim &key dim2 (element-type 'double-float))
+  (let ((d2 (or dim2 dim)))
     `(progn
-       (defun ,(intern f) (&rest rows)
+       (defun ,(symbol-for-dims "MAT" "" dim dim2) (&rest rows)
          (let ((ret (make-array (list ,dim ,d2) :element-type ',element-type)))
            (loop for i below ,dim for row in rows
                  do (loop for j below ,d2 for e in row do
                    (setf (aref ret i j) (coerce e ',element-type))))
            ret))
-       (defun ,(intern (concatenate 'string f "-ONES")) ()
+       (defun ,(symbol-for-dims "MAT" "ONES" dim dim2) ()
          (make-array (list ,dim ,d2)
                      :initial-element (coerce 1 ',element-type)
                      :element-type ',element-type))
-       (defun ,(intern (concatenate 'string f "-ZEROS")) ()
+       (defun  ,(symbol-for-dims "MAT" "ZEROS" dim dim2)()
          (make-array (list ,dim ,d2)
                      :initial-element (coerce 0 ',element-type)
                      :element-type ',element-type))
        ,(when (= dim d2)
-          `(defun ,(intern (concatenate 'string f "-D")) (&rest elements)
-             (let ((result   (,(intern (concatenate 'string f "-ZEROS")))))
-               (print result)
+          `(defun  ,(symbol-for-dims "MAT" "D" dim dim2) (&rest elements)
+             (let ((result   (,(symbol-for-dims "MAT" "ZEROS" dim dim2))))
                (loop for i below ,dim do
                  (print elements)
                  (setf (aref result i i) 
@@ -151,83 +180,105 @@
                result))))))
 
 
-(defmacro make-vec-maker (dim &key (element-type 'double-float) postfix)
-  (let ((f (format nil "VEC-~d~@[~a~]" dim postfix)))
-    `(progn
-       (defun ,(intern f) (&rest elements)
-         (let ((ret (make-array (list ,dim ) :element-type ',element-type)))
-           (loop for i below ,dim for e in elements do
-             (setf (aref ret i) (coerce e ',element-type)))
-           ret))
-
-       (defun ,(intern (concatenate 'string f "-ONES")) ()
-         (make-array (list ,dim) :initial-element 1d0
-                                 :element-type ',element-type))
-       (defun ,(intern (concatenate 'string f "-ZEROS")) ()
-         (make-array (list ,dim) :initial-element 0d0
-                                 :element-type ',element-type)))))
-
-
-(defmacro make-ops-for-dim (n &optional m (element-type 'double-float))
+(defmacro make-vec-maker (dim &key (element-type 'double-float))
   `(progn
-     (make-mat-+ ,n ,m ,element-type)
-     (make-scale-mat ,n ,m ,element-type)
-     (make-matmat ,n ,m nil ,element-type)
-     (make-mat-maker ,n :dim2 ,m :element-type ,element-type)
-     (make-transpose-mat ,n ,m ,element-type)
-     (make-matvec ,n ,m ,element-type)
-     ,(unless m
-        `(progn
-           (make-scale-vec ,n ,element-type)
-           (make-vec-+ ,n ,element-type)
-           (make-dot ,n ,element-type)
-           (make-vec-maker ,n :element-type ,element-type)))))
+     (defun ,(symbol-for-dims "VEC" nil dim)  (&rest elements)
+       (let ((ret (make-array (list ,dim ) :element-type ',element-type)))
+         (loop for i below ,dim for e in elements do
+           (setf (aref ret i) (coerce e ',element-type)))
+         ret))
+
+     (defun ,(symbol-for-dims "VEC" "ONES" dim) ()
+       (make-array (list ,dim) :initial-element 1d0
+                               :element-type ',element-type))
+     (defun ,(symbol-for-dims "VEC" "ZEROS" dim) ()
+       (make-array (list ,dim) :initial-element 0d0
+                               :element-type ',element-type))))
 
 
-(make-ops-for-dim 2)
-(make-ops-for-dim 3)
-(make-ops-for-dim 4)
+(defmacro make-ops-for-dim (n &optional m l (element-type 'double-float))
+  `(progn
+     (make-matmat ,n ,m ,l ,element-type)
+     ,(if (eql l m)
+          `(progn
+             (make-matvec ,n ,m ,element-type)
+             (make-mat-maker ,n :dim2 ,m :element-type ,element-type)))
+     ,(unless l
+        `(progn 
+           (make-mat-+ ,n ,m ,element-type)
+           (make-scale-mat ,n ,m ,element-type)
+           (make-transpose-mat ,n ,m ,element-type)
+           ,(unless m
+              `(progn
+                 (make-scale-vec ,n ,element-type)
+                 (make-vec-+ ,n ,element-type)
+                 (make-vec-- ,n ,element-type)
+                 (make-vec-norm ,n ,element-type)
+                 (make-dot ,n ,element-type)
+                 (make-vec-maker ,n :element-type ,element-type)))))))
 
-(make-ops-for-dim 3 2)
-(make-ops-for-dim 2 3)
 
-(make-ops-for-dim 3 4)
-(make-ops-for-dim 4 3)
+(defmacro make-linalg  (max-dim)
+  (let (forms v+-cases v--cases sv-cases dot-cases norm-cases
+        mv-cases mm-cases)
+    (loop for i from 2 to max-dim do
+      (push `(,i (,(symbol-for-dims "V" "+" i) v1 v2 result)) v+-cases)
+      (push `(,i (,(symbol-for-dims "V" "-" i) v1 v2 result)) v--cases)
+      (push `(,i (,(symbol-for-dims "SV" "*"i) val vec result)) sv-cases)
+      (push `(,i (,(symbol-for-dims "V" "*" i) v1 v2)) dot-cases)
+      (push `(,i (,(symbol-for-dims "VNORM" "*" i) vec)) norm-cases)
 
-(make-ops-for-dim 4 2)
-(make-ops-for-dim 2 4)
-(make-matmat 3 3 4 double-float)
+      (push `(,i (ecase m
+                   ,@(loop for j from 2 to max-dim
+                           collect `(,j (,(symbol-for-dims "MV" "*" i j)
+                                         mat vec)))))
+            mv-cases)
 
-(defun mm-* (mat1 mat2 &rest rest)
-  (declare 
-   (type (simple-array double-float (* *)) mat1)
-   (type (simple-array double-float (* *)) mat2))
-  (let* ((n (array-dimension mat1 0))
-         (m (array-dimension mat2 1))
-         (l (array-dimension mat2 1))
-         (result (make-array (list n l) :element-type 'double-float)))
-    (loop for i below n do
-      (loop for k below l do
-        (setf (aref result i k)
-              (loop for j below m
-                    sum (* (aref mat1 i j) (aref mat2 j k)) double-float))))
-    (if (not rest)
-        result
-        (apply #'mm-* result rest))))
+      (push `(,i (ecase m
+                   ,@(loop for j from 2 to max-dim
+                           collect
+                           `(,j (ecase l
+                                  ,@(loop for k from 2 to max-dim
+                                          collect
+                                          (if (and (= i j) (= j k))
+                                              (progn
+                                                (push `(make-ops-for-dim ,i) forms)
+                                                `(,k (,(symbol-for-dims "MM" "*" i) mat1 mat2)))
+                                              (progn
+                                                (push `(make-ops-for-dim ,i ,j ,k) forms)
+                                                `(,k (,(symbol-for-dims "MM" "*" i j k) mat1 mat2))
+                                                )
+                                              )))))))
+            mm-cases))
 
-(defun mv-* (mat vec)
-  (declare 
-   (type (simple-array double-float (* *)) mat)
-   (type (simple-array double-float (*)) vec))
-  (let* ((n (array-dimension mat 0))
-         (m (array-dimension mat 1))
-         (result (make-array (list n) :element-type 'double-float)))
-    (loop for i below n do
-      (setf (aref result i) 
-            (loop for j below m
-                  sum (* (aref vec j) (aref mat i j)) double-float)))
-    result))
+    `(progn
+       ,@(nreverse forms)
+       (defun v+ (v1 v2)
+         (ecase (array-dimension v1 0) ,@(nreverse v+-cases)))
+       (defun v- (v1 v2)
+         (ecase (array-dimension v1 0) ,@(nreverse v--cases)))
+       (defun scale-vec (val vec)
+         (ecase (array-dimension vec 0) ,@(nreverse sv-cases)))
+       (defun dot (v1 v2)
+         (ecase (array-dimension v1 0) ,@(nreverse dot-cases)))
+       (defun norm (vec)
+         (ecase (array-dimension vec 0) ,@(nreverse norm-cases)))
+       (defun mv-* (mat vec)
+         (let ((n (array-dimension mat 0))
+               (m (array-dimension mat 1)))
+           (ecase n
+             ,@(nreverse mv-cases))))
+       (defun mm-* (mat1 mat2)
+         (let ((n (array-dimension mat1 0))
+               (m (array-dimension mat1 1))
+               (l (array-dimension mat2 1)))
+           (ecase n
+             ,@(nreverse mm-cases)))))))
 
+
+(make-linalg 4)
+
+(mv-* (mm-* (mat-3-ones) (mat-3-2-ones)) (vec-2 1 2))
 
 
 (defun vec-x (vec) (aref vec 0))
@@ -318,3 +369,21 @@
 
 (defun compose-4 (&rest transforms)
   (reduce #'m-4-* (reverse transforms)))
+
+
+
+(defun close-p (val1 val2)
+  (< (abs (- val1  val2)) +epsilon+))
+
+(defun affine-p (m)
+  (and (close-p (aref m 3 0) 0)
+       (close-p (aref m 3 1) 0)
+       (close-p (aref m 3 2) 0)))
+
+(defun on-plane-mat (u v p)
+  (mat-4-3 (list (vec-x u) (vec-x v) (vec-x p))
+           (list (vec-y u) (vec-y v) (vec-y p))
+           (list (vec-z u) (vec-z v) (vec-z p))
+           (list 0 0 1)))
+
+
