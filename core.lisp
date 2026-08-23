@@ -2,43 +2,6 @@
 
 (declaim (optimize (speed 0) (space 0) (safety 3) (debug 3)))
 
-(defun on-plane-mat (u v p)
-  (mat-4-3 (list (vec-x u) (vec-x v) (vec-x p))
-           (list (vec-y u) (vec-y v) (vec-y p))
-           (list (vec-z u) (vec-z v) (vec-z p))
-           (list 0 0 1)))
-
-(defparameter +xy-plane-mat+ (on-plane-mat (vec-3 1 0 0)
-                                           (vec-3 0 1 0)
-                                           (vec-3 0 0 0)))
-
-(defparameter +yz-plane-mat+ (on-plane-mat (vec-3 0 1 0)
-                                           (vec-3 0 0 1)
-                                           (vec-3 0 0 0)))
-
-(defparameter +xz-plane-mat+ (on-plane-mat (vec-3 1 0 0)
-                                           (vec-3 0 0 1)
-                                           (vec-3 0 0 0)))
-
-(defparameter +drop-z+ (mat-3-4 (list 1 0 0 0)
-                                (list 0 1 0 0)
-                                (list 0 0 0 1)))
-
-(defparameter +placement-identity+ (mat-3 (list 1 0 0)
-                                          (list 0 1 0)
-                                          (list 0 0 1)))
-
-(defparameter +ortho-z+ (mat-4 (list 1 0 0 0)
-                               (list 0 1 0 0)
-                               (list 0 0 1 0)
-                               (list 0 0 0 1)))
-
-(defparameter +identity-4+ (mat-4 (list 1 0 0 0)
-                               (list 0 1 0 0)
-                               (list 0 0 1 0)
-                               (list 0 0 0 1)))
-
-
 (defvar *elements* nil)
 (defvar *pending* nil)
 (defvar *clip* nil)
@@ -83,14 +46,6 @@
               :type (array double-float (3 3)))) ; 2D homogenous
   (:default-initargs :view +ortho-z+ :proj +ortho-z+ :placement +placement-identity+))
 
-;; If the viewport is non-perspective then we can treat clip->flatten as a matrix,
-;; So entire transformation chain is a single 2x3 matrix since clip->flatten is
-;; the 3x4 matrix which flattens to z=0 in clip space
-;; So the chain is 4x4 -> 4x4 -> (clip) 3x4 -> (3 x 3)  (2D homegneous) -> (2 x 3)
-
-;; If the viewport is non-perspective then we must operate on individual points
-;; and do the (x,y,z,w) -> (x/w,y/w,z/w) transformation to  go fomr 
-
 
 (defun p (&rest coords)
   (ecase *current-drawing-dim*
@@ -113,7 +68,6 @@
 
 
 
-
 (defun elem->eye (elem)
   (mm-*
    (viewport-view (element-viewport elem))
@@ -123,6 +77,7 @@
   (m-4-*
    (viewport-proj (element-viewport elem))
    (elem->eye elem)))
+
 
 (defun elem->placement (elem vec)
   (let ((ecm (elem->clip elem))
@@ -140,7 +95,13 @@
        (clip->page (mv-* ecm vec)) ))))
 
 
+(defun element-affine-p (elem)
+  (affine-p (elem->clip elem)))
 
+
+(defun element->placement-mat (elem)
+  (let* ((vp (element-viewport elem)))
+    (mm-* (viewport-placement vp) +drop-z+ (elem->clip elem))))
 
 (defclass element ()
   ((type :initarg :type :reader element-type)
@@ -190,7 +151,6 @@
         (tr (or transform *transform*))
         (c (or clip *clip*))
         (v (or viewport *viewport*)))
-    (print tr)
     
     (if (deep-delayed-p params)
         (progn 
@@ -238,19 +198,12 @@
     (resolution)
     (list *elements* *resources*)))
 
-
-
-
-
 (defun resolve-name (name &optional viewport)
   (resolve (or (gethash (cons name  viewport) *names*)
                (gethash (cons name  *viewport*) *names*)
                (error "Bad key"))))
 
-(defun at (name args &optional (viewport *viewport*) )
-  (delay
-   (let* ((e (resolve-name name viewport))
-          (p (apply (element-anchor e) args)))
-     (mv-4-* (element-transform e) p))))
 
-
+(defun elem-depth (elem)
+  (mv-* (elem->eye elem)
+        (element-centroid (element-type elem) (element-params elem))))
