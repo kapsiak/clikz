@@ -3,7 +3,7 @@
 (defconstant +epsilon+ 1d-9)
 
 (defmacro speedmode ()
-  ``(optimize (speed 0) (safety 3)))
+  ``(optimize (speed 0) (safety 3) (debug 3)))
 
 
 (defun symbol-for-dims (prefix postfix &rest dims)
@@ -222,9 +222,9 @@
   (let (forms v+-cases v--cases sv-cases dot-cases norm-cases
         mv-cases mm-cases)
     (loop for i from 2 to max-dim do
-      (push `(,i (,(symbol-for-dims "V" "+" i) v1 v2 result)) v+-cases)
-      (push `(,i (,(symbol-for-dims "V" "-" i) v1 v2 result)) v--cases)
-      (push `(,i (,(symbol-for-dims "SV" "*"i) val vec result)) sv-cases)
+      (push `(,i (,(symbol-for-dims "V" "+" i) v1 v2)) v+-cases)
+      (push `(,i (,(symbol-for-dims "V" "-" i) v1 v2)) v--cases)
+      (push `(,i (,(symbol-for-dims "SV" "*"i) val vec)) sv-cases)
       (push `(,i (,(symbol-for-dims "V" "*" i) v1 v2)) dot-cases)
       (push `(,i (,(symbol-for-dims "VNORM" "*" i) vec)) norm-cases)
 
@@ -254,31 +254,43 @@
     `(progn
        ,@(nreverse forms)
        (defun v+ (v1 v2)
+         (declare ,(speedmode))
          (ecase (array-dimension v1 0) ,@(nreverse v+-cases)))
        (defun v- (v1 v2)
+         (declare ,(speedmode))
          (ecase (array-dimension v1 0) ,@(nreverse v--cases)))
        (defun scale-vec (val vec)
+         (declare ,(speedmode))
          (ecase (array-dimension vec 0) ,@(nreverse sv-cases)))
        (defun dot (v1 v2)
+         (declare ,(speedmode))
          (ecase (array-dimension v1 0) ,@(nreverse dot-cases)))
        (defun norm (vec)
+         (declare ,(speedmode))
          (ecase (array-dimension vec 0) ,@(nreverse norm-cases)))
        (defun mv-* (mat vec)
+         (declare ,(speedmode))
          (let ((n (array-dimension mat 0))
                (m (array-dimension mat 1)))
            (ecase n
              ,@(nreverse mv-cases))))
-       (defun mm-* (mat1 mat2)
+       (defun mm-* (mat1 mat2 &rest rest)
+         (declare ,(speedmode))
          (let ((n (array-dimension mat1 0))
                (m (array-dimension mat1 1))
                (l (array-dimension mat2 1)))
-           (ecase n
-             ,@(nreverse mm-cases)))))))
+           (let ((result 
+                   (ecase n
+                     ,@(nreverse mm-cases))))
+             (if rest
+                 (apply #'mm-* result rest)
+                 result)))))))
 
 
 (make-linalg 4)
 
-(mv-* (mm-* (mat-3-ones) (mat-3-2-ones)) (vec-2 1 2))
+(time
+ (mm-* (mat-3-ones) (mat-3-2-ones) (mat-2-3-ones)))
 
 
 (defun vec-x (vec) (aref vec 0))
