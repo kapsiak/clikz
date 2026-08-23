@@ -180,7 +180,7 @@
     (resolve (pop *pending*))))
 
 
-(defun process (func)
+(defun process (func &rest args)
   (let ((*elements* nil)
         (*pending* nil)
         (*clip* nil)
@@ -189,7 +189,7 @@
         (*viewport* (make-instance 'viewport))
         (*transform* (mat-4-d 1 1 1 1))
         (*style* nil))
-    (funcall func)
+    (apply func args)
     (loop for key being each hash-key of *names*
             using (hash-value value)
           do (format t "Key: ~S, Value: ~S~%" key value))
@@ -204,6 +204,18 @@
                (error "Bad key"))))
 
 
-(defun elem-depth (elem)
-  (mv-* (elem->eye elem)
-        (element-centroid (element-type elem) (element-params elem))))
+(defun element-centroid (element)
+  (primitive-centroid (element-type element) (element-params element)))
+
+(defun element-centroid-eye (element)
+  (mv-* (elem->eye element) (element-centroid element)))
+
+(defun element-depth (element)
+  (vec-z (element-centroid-eye element)))
+
+(defun element-face-side (element)
+  (when (eql (element-type element) :face)
+    (let* ((n (getf (element-params element) :normal))
+           (eye (elem->eye element))
+           (nz (vec-z (mv-* eye (vec-4 (vec-x n) (vec-y n) (vec-z n) 0)))))
+      (if (> nz 0) :front :back))))

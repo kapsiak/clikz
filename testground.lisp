@@ -1,32 +1,30 @@
 (in-package :quickdraw)
 
 (progn 
-  (defun test2 ()
+  (defun test2 (angle)
     (with-viewport *viewport*
-      (with-style '(:stroke "red" :stroke-width 4 :fill "none")
-        (print *transform*)
-        (with-transform (mat-4-rot-x -45)
-          (with-transform (mat-4-translate 100 0 20)
-            (draw-path-parametric (lambda (x) (p (* 50 (sin x)) (* 50 (cos x)) (* 20 x))) 0 50 200)
+      (with-style '(:stroke "blue" :stroke-width 1 :fill "none")
+        (with-transform (mat-4-rot-x angle)
+          (with-transform (mat-4-translate 200 200 30)
+            (draw-surface (lambda (x y) (p (* 150 x) (* 150 y)
+                                           (* -200 (expt 2.71 (- (+ (expt x 2) (expt (* 2 y) 2)))))))
+                          :u0 -2 :u1 2 :v0 -2 :v1 2 :mode :face
+                          :style '(:fill red)
+                          :back-style '(:fill orange))
             )))))
 
   (let ((r (make-instance 'svg-backend))
-        (e (process #'test2)))
+        (e (process #'test2 20)))
     (init-backend r)
-    (loop for elem in (first e) do
-      (render-element r (element-type elem) elem))
+    (render r (car e) (cadr e))
     (with-open-file (x "test.svg"
                        :direction :output
                        :if-exists :supersede
                        :if-does-not-exist :create)
-      (write-string (svg-to-string r)  x)))
-
-  )
+      (write-string (svg-to-string r)  x))))
 
 
 
 
 
 
-(m-4-* (mat-4-rot-x -90) (mat-4-translate (p 100 100)))
-(m-4-*  (mat-4-translate (p 100 100)) (mat-4-rot-x -90))
