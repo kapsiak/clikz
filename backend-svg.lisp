@@ -14,12 +14,24 @@
         collect (list (string-downcase (string k)) v)))
 
 
+(defun matrix->svg-transform (mat3)
+  (format nil "matrix(~f ~f ~f ~f ~f ~f)"
+          (aref mat3 0 0) (aref mat3 1 0)
+          (aref mat3 0 1) (aref mat3 1 1)
+          (aref mat3 0 2) (aref mat3 1 2)))
+
+
 (defun svg-to-string (backend)
-  (xmls:toxml
-   (xmls:nodelist->node 
-    `("svg" (("width" 300) ("height" 300) ("xmlns" "http://www.w3.org/2000/svg"))
-            ,@(svg-backend-elements backend)))
-   :indent 2))
+  (with-output-to-string (out)
+    (xmls:write-xml
+     (xmls:nodelist->node 
+      `("svg" (("width" ,(format nil "~d" (svg-backend-width backend)))
+               ("height" ,(format nil "~d" (svg-backend-height backend)))
+               ("xmlns" "http://www.w3.org/2000/svg"))
+              ,@(when (svg-backend-defs backend)
+                  `(("defs" nil ,@(nreverse (svg-backend-defs backend)))))
+              ,@(nreverse (svg-backend-elements backend))))
+     out :indent 2)))
 
 (defun point-to-pair (v)
   (format nil "~F ~F" (vec-x v) (vec-y v))) 
