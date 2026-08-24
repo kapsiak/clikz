@@ -1,10 +1,13 @@
 (in-package :quickdraw)
 
+
+(defparameter *svg-coordinate-precision* 4)
+
 (defclass svg-backend ()
   ((elements :accessor svg-backend-elements :initform nil)
    (defs     :accessor svg-backend-defs     :initform nil)
    (stream   :accessor svg-backend-stream   :initarg :stream :initform nil)
-   (width    :accessor svg-backend-width    :initarg :width  :initform 800)
+   (width    :accessor svg-backend-width    :initarg :width  :initform 600)
    (height   :accessor svg-backend-height   :initarg :height :initform 600)))
 
 
@@ -22,7 +25,15 @@
   (push element (svg-backend-defs backend)))
 
 (defun attr (key value)
-  (list (string-downcase (string key)) (format nil "~a" value)))
+  (print value)
+  (list (string-downcase (string key))
+        (typecase value
+          (float  (format nil "~,vf" *svg-coordinate-precision* value))
+          (real  (format nil "~,vf" *svg-coordinate-precision* (coerce value 'double-float)))
+          (string value)
+          (symbol (string-downcase (symbol-name value)))
+          (t (format nil "~a" value)))))
+
 
 (defun resource-p (x)
   (typep x 'resource))
@@ -34,11 +45,11 @@
         collect (list (string-downcase (string k)) v)))
 
 
-(defun matrix->svg-transform (mat3)
+(defun matrix->svg-transform (mat)
   (format nil "matrix(~,2f ~,2f ~,2f ~,2f ~,2f ~,2f)"
-          (aref mat3 0 0) (aref mat3 1 0)
-          (aref mat3 0 1) (aref mat3 1 1)
-          (aref mat3 0 2) (aref mat3 1 2)))
+          (aref mat 0 0) (aref mat 1 0)
+          (aref mat 0 1) (aref mat 1 1)
+          (aref mat 0 3) (aref mat 1 3)))
 
 
 (defun svg-to-string (backend)
@@ -56,11 +67,8 @@
 (defun point-to-pair (v)
   (format nil "~,2f ~,2f" (vec-x v) (vec-y v))) 
 
-(defun points-to-tuple (v1 v2 v3)
-  (format nil "~a, ~a, ~a"
-          (point-to-pair v1)
-          (point-to-pair v2)
-          (point-to-pair v3)))
+(defun points-to-tuple (&rest vecs)
+  (format nil "~{~a~^, ~}" (mapcar #'point-to-pair vecs)))
 
 
 
@@ -102,8 +110,8 @@
 (defmethod render-element ((backend svg-backend) (type (eql :segment)) element)
   (let* ((params (element-params element))
          (trans (elem->placement-func element))
-         (p0 (funcall trans (getf params :p0)))
-         (p1 (funcall trans (getf params :p1))))
+         (p0 (funcall trans (getf params :start)))
+         (p1 (funcall trans (getf params :end))))
     (svg-emit backend element "line"
               (append (list (attr "x1" (vec-x p0)) (attr "y1" (vec-y p0))
                             (attr "x2" (vec-x p1)) (attr "y2" (vec-y p1)))
@@ -114,6 +122,7 @@
   (let* ((params (element-params element))
          (w (getf params :w)) (h (getf params :h))
          (rx (or (getf params :rx) 0)) (ry (or (getf params :ry) 0)))
+    (print (element->placement-mat element))
     (if (element-affine-p element)
         (svg-emit backend element "rect"
                   (append (list (attr "x" (- (/ w 2)))
@@ -200,11 +209,26 @@
                                                (funcall trans p2)))
                       d)))
           (:Z (push "Z" d)))))
+
     (svg-emit backend element "path"
               (append (list (attr "d" (format nil "~{~a~^ ~}" (nreverse d))))
                       (style->list (element-style element))))))
 
 
+(defmethod render-element ((backend svg-backend) (type (eql :label)) element)
+  (let ((pt (elem->placement element (vec-4 0 0 0 1))))
+    (svg-emit backend element "text"
+              (append (list (attr "x" (vec-x pt))
+                            (attr "y" (vec-y pt))
+                            (attr "text-anchor"
+                                  (ecase (getf-elem element :align)
+                                    (:center "middle") (:left "start") (:right "end")))
+                            (attr "dominant-baseline"
+                                  (ecase (getf-elem element :baseline)
+                                    (:middle "middle") (:top "hanging")
+                                    (:bottom "auto"))))
+                      (style->list (element-style element)))
+              (getf-elem element :text))))
 
 
 (defmethod resource-ref ((backend svg-backend) (resource resource))
