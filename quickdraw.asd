@@ -8,6 +8,7 @@
                (:file "linalg-constants")
 
                (:file "util")
+               (:file "color")
 
                (:file "elements")
                (:file "resource")
@@ -20,8 +21,7 @@
                (:file "drawing/surfaces")
 
                (:file "backend")
-               (:file "backend-svg")
-               (:file "testground")))
+               (:file "backend-svg")))
 
 
 
