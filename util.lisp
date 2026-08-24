@@ -4,22 +4,38 @@
 (defstruct delayed
   value
   (state :unresolved)
-  function) 
+  function
+  source)
 
+
+
+
+
+(define-condition circular-dependency (error)
+  ((delayed :initarg :delayed :reader circular-dependency-delayed)
+   (source :initarg :source :initform nil :reader circular-dependency-source))
+  (:report (lambda (c s)
+             (format s "Circular dependency while resolving ~s"
+                     (or (circular-dependency-source c)
+                         (circular-dependency-delayed c))))))
 
 (defun resolve (val)
-  (cond
-    ((not (delayed-p val)) val)
-    ((delayed-value val)  (delayed-value val))
-    ((eql (delayed-state val) :resolving) (error 'circular))
-    (t
-     (let ((result (funcall (delayed-function val))))
-       (setf (delayed-state val) :resolved)
-       (setf (delayed-value val) result)
-       result))))
+  (if (not (delayed-p val))
+      val
+      (ecase (delayed-state val)
+        (:resolved (delayed-value val))
+        (:resolving (error 'circular-dependency
+                           :delayed val :source (delayed-source val)))
+        (:unresolved
+         (setf (delayed-state val) :resolving)
+         (let ((result (funcall (delayed-function val))))
+           (setf (delayed-state val) :resolved)
+           (setf (delayed-value val) result)
+           result)))))
 
 (defmacro delay (&rest body)
-  `(make-delayed :value nil :function (lambda () ,@body)))
+  `(make-delayed :value nil :function (lambda () ,@body)
+                 :source ',body))
 
 
 (defmacro make-delayed-function (name function)

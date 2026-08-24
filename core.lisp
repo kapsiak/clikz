@@ -1,16 +1,17 @@
 (in-package :quickdraw)
 
-(declaim (optimize (speed 0) (space 0) (safety 3) (debug 3)))
-
 (defvar *elements* nil)
+(defvar *element-index* nil)
+(defvar *resource-index* nil)
 (defvar *pending* nil)
 (defvar *clip* nil)
+(defvar *element-index* nil)
 (defvar *resources* (make-hash-table :test #'equal))
 (defvar *names* (make-hash-table :test #'equal))
 (defvar *viewport* nil)
-(defvar *current-drawing-dim* 3)
 (defvar *transform* +identity-4+)
 (defvar *style* nil)
+(defvar *path-length-cache* (make-hash-table))
 
 (defun merge-style (orig updates)
   (let (( ret (copy-tree  orig)))
@@ -19,10 +20,8 @@
              (setf (getf ret key) value))
     ret))
 
-
 (defmacro with-transform (transform &rest body)
-  `(let ((*transform* (mm-* ,transform *transform* ))
-         (*current-drawing-dim* (array-dimension ,transform 1)))
+  `(let ((*transform* (mm-* ,transform *transform* )))
      ,@body))
 
 (defmacro with-style (style &rest body)
@@ -32,9 +31,6 @@
 (defmacro with-viewport (v &rest body)
   `(let ((*viewport* ,v))
      ,@body))
-
-
-
 
 
 (defclass viewport ()
@@ -47,71 +43,15 @@
   (:default-initargs :view +ortho-z+ :proj +ortho-z+ :placement +placement-identity+))
 
 
-(defun p (&rest coords)
-  (ecase *current-drawing-dim*
-    (2 (ecase (length coords)
-         (2 (vec-3 (first coords) (second coords) 1))))
-    (3
-     (ecase (length coords)
-       (2 (vec-4 (first coords) (second coords) 0 1))
-       (3 (vec-4 (first coords) (second coords) (third coords) 1))))
-    (4
-     (ecase (length coords)
-       (2 (vec-4 (first coords) (second coords) 0 1))
-       (3 (vec-4 (first coords) (second coords) (third coords) 1))))))
+(defun make-page-viewport (&key (view +ortho-z+) (proj +ortho-z+)
+                                (scale 1d0) (origin-x 0d0) (origin-y 0d0)
+                                (flip-y t))
+  (make-instance 'viewport
+    :view view :proj proj
+    :placement (mat-3-3 (list scale 0 origin-x)
+                        (list 0 (if flip-y (- scale) scale) origin-y)
+                        (list 0 0 1))))
 
-;; 4->3
-(defun clip->page (vec)
-  (let ((w (vec-w vec)))
-    (vec-3 (/ (vec-x vec) w) (/ (vec-y vec) w) 1)))
-
-
-
-
-(defun elem->eye (elem)
-  (mm-*
-   (viewport-view (element-viewport elem))
-   (element-transform elem)))
-
-(defun elem->clip (elem)
-  (m-4-*
-   (viewport-proj (element-viewport elem))
-   (elem->eye elem)))
-
-
-(defun elem->placement (elem vec)
-  (let ((ecm (elem->clip elem))
-        (place (viewport-placement (element-viewport elem))))
-    (mv-3-*
-     place
-     (clip->page (mv-* ecm vec)) )))
-
-(defun elem->placement-func (elem)
-  (let ((ecm (elem->clip elem))
-        (place (viewport-placement (element-viewport elem))))
-    (lambda (vec)
-      (mv-3-*
-       place
-       (clip->page (mv-* ecm vec)) ))))
-
-
-(defun element-affine-p (elem)
-  (affine-p (elem->clip elem)))
-
-
-(defun element->placement-mat (elem)
-  (let* ((vp (element-viewport elem)))
-    (mm-* (viewport-placement vp) +drop-z+ (elem->clip elem))))
-
-(defclass element ()
-  ((type :initarg :type :reader element-type)
-   (transform :initarg :transform :reader element-transform)
-   (viewport :initarg :viewport :reader element-viewport)
-   (params :initarg :params :reader element-params)
-   (style :initarg :style :reader element-style)
-   (clip :initarg :clip :reader element-clip)
-   (anchor :initarg :anchor :reader element-anchor)
-   (boundary :initarg :boundary :reader element-boundary)))
 
 (defmethod print-object ((obj viewport) stream)
   (if *print-readably*
@@ -137,85 +77,30 @@
                 (if (slot-boundp obj 'boundary) (element-boundary obj) :unbound)))))
 
 
-(defun getf-elem (elem key)
-  (getf (element-params elem) key))
-
-(defclass resource ()
-  ((id :initarg :id :reader resource-id)))
-
-(defun emit (type &rest params
-                  &key transform viewport style clip name  anchor boundary
-                  &allow-other-keys)
-  (let (element
-        (s (or style *style*))
-        (tr (or transform *transform*))
-        (c (or clip *clip*))
-        (v (or viewport *viewport*)))
-    
-    (if (deep-delayed-p params)
-        (progn 
-          (setq element (delay
-                         (with-transform tr
-                           (let ((r (make-instance 'element
-                                      :type type
-                                      :transform tr :viewport v :style  s :clip c
-                                      :anchor anchor :boundary boundary
-                                      :params (deep-resolve params))))
-                             (push r *elements*)
-                             r))))
-          (push element *pending*))
-        (progn 
-          (setq element 
-                (make-instance 'element
-                  :type type
-                  :transform tr :viewport v :style  s :clip c
-                  :anchor anchor :boundary boundary
-                  :params params))
-          (push element *elements*)))
-    (when name
-      (setf (gethash (cons name v) *names*) element))))
-
-(defun resolution ()
-  (loop while *pending* do
-    (resolve (pop *pending*))))
-
-
-(defun process (func &rest args)
-  (let ((*elements* nil)
-        (*pending* nil)
-        (*clip* nil)
-        (*resources* (make-hash-table :test #'equal))
-        (*names* (make-hash-table :test #'equal))
-        (*viewport* (make-instance 'viewport))
-        (*transform* (mat-4-d 1 1 1 1))
-        (*style* nil))
-    (apply func args)
-    (loop for key being each hash-key of *names*
-            using (hash-value value)
-          do (format t "Key: ~S, Value: ~S~%" key value))
-
-
-    (resolution)
-    (list *elements* *resources*)))
-
 (defun resolve-name (name &optional viewport)
   (resolve (or (gethash (cons name  viewport) *names*)
                (gethash (cons name  *viewport*) *names*)
                (error "Bad key"))))
 
 
-(defun element-centroid (element)
-  (primitive-centroid (element-type element) (element-params element)))
 
-(defun element-centroid-eye (element)
-  (mv-* (elem->eye element) (element-centroid element)))
+(defun process (func &rest args)
+  (let ((*elements* nil)
+        (*pending* nil)
+        (*clip* nil)
+        (*element-index* 0)
+        (*resource-index* 0)
+        (*resources* (make-hash-table :test #'equal))
+        (*names* (make-hash-table :test #'equal))
+        (*viewport* (or *viewport* (make-instance 'viewport)))
+        (*transform* +identity-4+)
+        (*style* nil))
+    (apply func args)
+    (loop for key being each hash-key of *names*
+            using (hash-value value)
+          do (format t "Key: ~S, Value: ~S~%" key value))
 
-(defun element-depth (element)
-  (vec-z (element-centroid-eye element)))
+    (loop while *pending* do
+      (resolve (pop *pending*)))
+    (list (nreverse *elements*) *resources*)))
 
-(defun element-face-side (element)
-  (when (eql (element-type element) :face)
-    (let* ((n (getf (element-params element) :normal))
-           (eye (elem->eye element))
-           (nz (vec-z (mv-* eye (vec-4 (vec-x n) (vec-y n) (vec-z n) 0)))))
-      (if (> nz 0) :front :back))))

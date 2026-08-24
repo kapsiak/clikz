@@ -15,13 +15,21 @@
   (and (eql (element-face-side element) :back)
        (getf (element-params element) :cull t)))
 
+
 (defun sort-elements (elements)
-  (let ((groups (make-hash-table :test #'eq)))
-    (dolist (e elements)
-      (push e (gethash (element-viewport e) groups)))
-    (loop for vp being each hash-value of groups
+  (let ((groups (make-hash-table :test #'eq))
+        (viewport-order nil)
+        (elements-sorted (sort elements #'< :key #'element-index)))
+    (dolist (e elements-sorted)
+      (let ((vp (element-viewport e)))
+        (unless (nth-value 1 (gethash vp groups))
+          (push vp viewport-order))
+        (push e (gethash vp groups))))
+    (loop for vp in (nreverse viewport-order)
           append (stable-sort
-                  (remove-if #'element-cull-p vp)
+                  (remove-if #'element-cull-p
+                             (sort (nreverse (gethash vp groups))
+                                   #'< :key #'element-index))
                   #'< :key #'element-depth))))
 
 (defun render (backend elements resources)
@@ -30,4 +38,7 @@
     (when resources
       (maphash (lambda (k r) (render-resource backend r)) resources))
     (dolist (element (sort-elements elements))
-      (render-element backend (element-type element) element))))
+      (if (supports-p backend (element-type element))
+          (render-element backend (element-type element) element)
+          (warn "Backend ~s does not support ~s; element skipped."
+                backend (element-type element))))))

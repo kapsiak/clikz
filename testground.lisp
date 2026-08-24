@@ -3,18 +3,16 @@
 (progn 
   (defun test2 (angle)
     (with-viewport *viewport*
-      (with-style '(:stroke "blue" :stroke-width 1 :fill "none")
-        (with-transform (mat-4-rot-x angle)
-          (with-transform (mat-4-translate 200 200 30)
-            (draw-surface (lambda (x y) (p (* 150 x) (* 150 y)
-                                           (* -200 (expt 2.71 (- (+ (expt x 2) (expt (* 2 y) 2)))))))
-                          :u0 -2 :u1 2 :v0 -2 :v1 2 :mode :face
-                          :style '(:fill red)
-                          :back-style '(:fill orange))
-            )))))
+      (with-style '(:stroke-width 4  :stroke blue)
+        (with-transform (mat-4-translate 300 300 0)
+          (draw-rect 50 50 :rx 0 :ry 0 :name 'r1))
+        (with-transform (mat-4-translate 100 100 0)
+          (draw-rect 50 50 :rx 0 :ry 0 :name 'r2))
+        (draw-segment (at 'r1 '(:center))
+                      (at 'r2 '(:center))))))
 
   (let ((r (make-instance 'svg-backend))
-        (e (process #'test2 20)))
+        (e (process #'test2 120)))
     (init-backend r)
     (render r (car e) (cadr e))
     (with-open-file (x "test.svg"

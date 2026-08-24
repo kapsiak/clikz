@@ -2,14 +2,15 @@
 
 (defconstant +epsilon+ 1d-9)
 
-(defvar *linalg-optimize* '((speed 0) (safety 3) (debug 3)))
 
 
-(defun symbol-for-dims (prefix postfix &rest dims)
-  (intern (format nil "~a-~{~d~^-~}~@[-~a~]" (string-upcase prefix)
-                  (remove-if #'not dims)
-                  (string-upcase postfix))
-          :quickdraw))
+(eval-when (:compile-toplevel)
+  (defparameter *linalg-optimize* '((speed 0) (safety 3) (debug 3)))
+  (defun symbol-for-dims (prefix postfix &rest dims)
+    (intern (format nil "~a-~{~d~^-~}~@[-~a~]" prefix
+                    (remove-if #'not dims)
+                    postfix)
+            :quickdraw)))
 
 (defmacro make-matvec (n &optional m? (element-type 'double-float))
   (let ((m (or m? n)))
@@ -69,13 +70,16 @@
 
 
 
-(defmacro make-vec-norm (n &optional (element-type 'double-float))
+(defmacro make-vec-normalize (n &optional (element-type 'double-float))
   (let ((sv  (symbol-for-dims "SV" "*" n))
         (dot (symbol-for-dims "V" "*" n)))
-    `(defun ,(intern (format nil "VNORM-~d-*" n)) (vec)
+    `(defun ,(intern (format nil "VNORMALIZE-~d-*" n)) (vec)
        (declare (optimize ,@*linalg-optimize*)
                 (type (simple-array ,element-type (,n)) vec))
-       (,sv (sqrt (,dot vec vec)) vec))))
+       (let ((l (sqrt (,dot  vec vec))))
+         (if (< l +epsilon+)
+             (error 'zero-vec :vector vec)
+             (,sv (/ 1d0 l) vec))))))
 
 
 
@@ -152,7 +156,7 @@
 (defmacro make-mat-maker (n &optional m? (element-type 'double-float))
   (let ((m (or m? n)))
     `(progn
-       (defun ,(symbol-for-dims "MAT" "" n m?) (&rest rows)
+       (defun ,(symbol-for-dims "MAT" nil n m?) (&rest rows)
          (let ((ret (make-array (list ,n ,m) :element-type ',element-type)))
            (loop for i below ,n for row in rows
                  do (loop for j below ,m for e in row do
@@ -214,10 +218,11 @@
   (let (forms v+-cases v--cases sv-cases dot-cases norm-cases
         mv-cases mm-cases)
     (loop for i from 2 to max-dim do
+      (push `(make-vec-maker ,i) forms)
       (push `(make-scale-vec ,i) forms)
       (push `(make-vec-+ ,i) forms)
       (push `(make-vec-- ,i) forms)
-      (push `(make-vec-norm ,i) forms)
+      (push `(make-vec-normalize ,i) forms)
       (push `(make-dot ,i) forms)
       (loop for j from 2 to max-dim do
         (push `(make-mat-maker ,i ,j) forms)
@@ -231,7 +236,7 @@
       (push `(,i (,(symbol-for-dims "V" "-" i) v1 v2)) v--cases)
       (push `(,i (,(symbol-for-dims "SV" "*"i) val vec)) sv-cases)
       (push `(,i (,(symbol-for-dims "V" "*" i) v1 v2)) dot-cases)
-      (push `(,i (,(symbol-for-dims "VNORM" "*" i) vec)) norm-cases)
+      (push `(,i (,(symbol-for-dims "VNORMALIZE" "*" i) vec)) norm-cases)
 
       (push `(,i (ecase m
                    ,@(loop for j from 2 to max-dim
@@ -260,10 +265,10 @@
        (defun scale-vec (val vec)
          (declare (optimize ,@*linalg-optimize*))
          (ecase (array-dimension vec 0) ,@(nreverse sv-cases)))
-       (defun v* (v1 v2)
+       (defun dot (v1 v2)
          (declare (optimize ,@*linalg-optimize*))
          (ecase (array-dimension v1 0) ,@(nreverse dot-cases)))
-       (defun norm (vec)
+       (defun normalize (vec)
          (declare (optimize ,@*linalg-optimize*))
          (ecase (array-dimension vec 0) ,@(nreverse norm-cases)))
        (defun mv-* (mat vec)
@@ -285,8 +290,8 @@
                  result)))))))
 
 
-(make-linalg 4)
 
+(make-linalg 4)
 
 (defun vec-x (vec) (aref vec 0))
 (defun vec-y (vec) (aref vec 1))
@@ -300,33 +305,33 @@
 
 (defun mat-2-rot (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-2 (list (cos rad) (- (sin rad)))
-           (list (sin rad) (cos rad)))))
+    (mat-2-2 (list (cos rad) (- (sin rad)))
+             (list (sin rad) (cos rad)))))
 
 (defun mat-3-rot-x (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-3
+    (mat-3-3
      (list 1 0 0)
      (list 0 (cos rad) (- (sin rad)))
      (list  0 (sin rad) (cos rad)))))
 
 (defun mat-3-rot-y (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-3
+    (mat-3-3
      (list (cos rad) 0 (- (sin rad)))
      (list 0 1 0)
      (list  (sin rad) 0 (cos rad)))))
 
 (defun mat-3-rot-z (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-3
+    (mat-3-3
      (list (cos rad) (- (sin rad)) 0 )
      (list (sin rad) (cos rad) 0)
      (list 0 0 1))))
 
 (defun mat-4-rot-x (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-4
+    (mat-4-4
      (list 1 0 0 0)
      (list 0 (cos rad) (- (sin rad)) 0)
      (list  0 (sin rad) (cos rad) 0)
@@ -334,7 +339,7 @@
 
 (defun mat-4-rot-y (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-4
+    (mat-4-4
      (list (cos rad) 0  (- (sin rad)) 0)
      (list 0 1 0 0)
      (list (sin rad) 0  (cos rad) 0)
@@ -342,38 +347,26 @@
 
 (defun mat-4-rot-z (angle)
   (let ((rad (deg-to-rad angle)))
-    (mat-4
+    (mat-4-4
      (list (cos rad)  (- (sin rad)) 0 0)
      (list (sin rad)   (cos rad)  0 0 )
      (list 0 0 1 0)
      (list 0 0 0 1))))
 
 (defun mat-4-translate (x y z)
-  (mat-4
+  (mat-4-4
    (list 1 0 0 x)
    (list 0 1 0 y)
    (list 0 0 1 z)
    (list 0 0 0 1)))
 
 
-(defun look-at (pos at up right)
-  (m-4-* (mat-4
-          (list (vec-x up) (vec-y up) (vec-z up) 0)
-          (list (vec-x right) (vec-y right) (vec-z right) 0)
-          (list (vec-x at) (vec-y at) (vec-z at) 0)
-          (list 0 0 0 1))
-
-         (mat-4
-          (list 1 0 0 (- (vec-x pos)))
-          (list 0 1 0 (- (vec-y pos)))
-          (list 0 0 1 (- (vec-z pos)))
-          (list 0 0 0 1))))
 
 (defun flatten-2d ()
   (mat-2-4 (list 1 0 0 0)
            (list 0 1 0 0)))
 
-(defun drop-homogenous (v)
+(defun xyz (v)
   (vec-3 (aref v 0) (aref v 1) (aref v 2)))
 
 
@@ -391,9 +384,6 @@
     (2 (cross-2 a b))
     (3 (cross-3 a b))))
 
-(defun compose-4 (&rest transforms)
-  (reduce #'mm-4-* (reverse transforms)))
-
 
 (defun close-p (val1 val2)
   (< (abs (- val1  val2)) +epsilon+))
@@ -409,4 +399,68 @@
            (list (vec-z u) (vec-z v) (vec-z p))
            (list 0 0 1)))
 
+(defun mat-4-ortho (left right bottom top near far)
+  (mat-4-4 (list (/ 2 (- right left)) 0 0 (- (/ (+ right left) (- right left))))
+           (list 0 (/ 2 (- top bottom)) 0 (- (/ (+ top bottom) (- top bottom))))
+           (list 0 0 (/ -2 (- far near)) (- (/ (+ far near) (- far near))))
+           (list 0 0 0 1)))
 
+(defun mat-4-perspective (fov-y aspect near far)
+  (let ((f (/ 1d0 (tan (/ (deg-to-rad fov-y) 2)))))
+    (mat-4-4 (list (/ f aspect) 0 0 0)
+             (list 0 f 0 0)
+             (list 0 0 (/ (+ far near) (- near far)) (/ (* 2 far near) (- near far)))
+             (list 0 0 -1 0))))
+
+(defun look-at (eye target up)
+  (let* ((f (normalize (v- (xyz target) (xyz eye))))
+         (r (normalize (cross-3 f (xyz up))))
+         (u (cross-3 r f)))
+    (mm-* (mat-4-4 (list (vec-x r) (vec-y r) (vec-z r) 0)
+                   (list (vec-x u) (vec-y u) (vec-z u) 0)
+                   (list (- (vec-x f)) (- (vec-y f)) (- (vec-z f)) 0)
+                   (list 0 0 0 1))
+          (mat-4-translate (- (vec-x eye)) (- (vec-y eye)) (- (vec-z eye))))))
+
+(defun mat-4-isometric (&key (azimuth 45) (elevation 35))
+  (mm-* (mat-4-rot-x (- elevation)) (mat-4-rot-y azimuth)))
+
+(define-condition singular-matrix (error)
+  ((matrix :initarg :matrix :reader singular-matrix-matrix))
+  (:report (lambda (c s)
+             (format s "Matrix is singular: ~s" (singular-matrix-matrix c)))))
+
+
+(defun invert-4 (m)
+  (let ((a (make-array '(4 8) :element-type 'double-float :initial-element 0d0)))
+    (loop for i below 4 do
+      (loop for j below 4 do (setf (aref a i j) (aref m i j)))
+      (setf (aref a i (+ 4 i)) 1d0))
+    (loop for col below 4 do
+      (let ((pivot col))
+        (loop for r from (1+ col) below 4
+              when (> (abs (aref a r col)) (abs (aref a pivot col)))
+                do (setf pivot r))
+        (when (< (abs (aref a pivot col)) +epsilon+)
+          (error 'singular-matrix :matrix m))
+        (unless (= pivot col)
+          (loop for j below 8 do (rotatef (aref a col j) (aref a pivot j))))
+        (let ((d (aref a col col)))
+          (loop for j below 8 do (setf (aref a col j) (/ (aref a col j) d))))
+        (loop for r below 4 unless (= r col) do
+          (let ((factor (aref a r col)))
+            (unless (zerop factor)
+              (loop for j below 8 do
+                (decf (aref a r j) (* factor (aref a col j)))))))))
+    (let ((result (make-array '(4 4) :element-type 'double-float)))
+      (loop for i below 4 do
+        (loop for j below 4 do (setf (aref result i j) (aref a i (+ 4 j)))))
+      result)))
+
+(defun transform-normal-4 (m n)
+  (mv-* (m-4-4-t (invert-4 m)) n))
+
+(defun p (&rest coords)
+  (ecase (length coords)
+    (2 (vec-4 (first coords) (second coords) 0 1))
+    (3 (vec-4 (first coords) (second coords) (third coords) 1))))

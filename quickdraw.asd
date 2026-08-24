@@ -9,10 +9,15 @@
 
                (:file "util")
 
+               (:file "elements")
+               (:file "resource")
                (:file "core")
                (:file "anchors")
+               (:file "primitives")
 
+               (:file "drawing/shapes")
                (:file "drawing/paths")
+               (:file "drawing/surfaces")
 
                (:file "backend")
                (:file "backend-svg")
