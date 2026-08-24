@@ -16,7 +16,8 @@
 
 (defun draw-surface-wire (grid &key style)
   (loop for row in grid
-        do (emit :polyline (list :points row :closed nil)
+        do (emit :polyline
+                 (list :points row :closed nil)
                  :style (merge-style *style* style)))
   (loop for j from 0 below (length (first grid))
         do (emit :polyline
@@ -34,8 +35,8 @@
                  for p11 = (nth (1+ j) next)
                  for p01 = (nth j next)
                  do (emit :face
-                          :points (list p00 p10 p11 p01)
-                          :normal (quad-normal p00 p10 p01)
+                          (list :points (list p00 p10 p11 p01)
+                                :normal (quad-normal p00 p10 p01))
                           :style (merge-style *style* style)
                           :back-style (and back-style
                                            (merge-style *style* back-style))

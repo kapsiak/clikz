@@ -57,3 +57,14 @@
 (defun draw-label (text &key (align :center) (baseline :middle) name style)
   (emit :label (list :text text :align align :baseline baseline)
         :name name :style (merge-style *style* style)))
+
+(defun draw-regular-polygon (sides r &key name style)
+  (draw-path 
+    (loop for i below sides
+                       for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
+                       collect (p (* r (cos theta))
+                                  (* r (sin theta))))
+   :closed t
+   :name name
+   :style style))
+
