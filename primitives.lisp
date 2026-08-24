@@ -67,7 +67,7 @@
 
 (defmethod primitive-centroid ((kind (eql :polyline)) params)
   (let ((points (getf params :points))) 
-    (if (closed (getf params :closed))
+    (if (getf params :closed)
         (centroid-of-polygon points)
         (centroid-of-points points))))
 

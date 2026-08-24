@@ -24,15 +24,19 @@
 (defun svg-add-def (backend element)
   (push element (svg-backend-defs backend)))
 
+
+(defun style-val->string (value)
+  (typecase value
+    (color  (color-css value))
+    (float  (format nil "~,vf" *svg-coordinate-precision* value))
+    (real  (format nil "~,vf" *svg-coordinate-precision* (coerce value 'double-float)))
+    (string value)
+    (symbol (string-downcase (symbol-name value)))
+    (t (format nil "~a" value))))
+
 (defun attr (key value)
-  (print value)
   (list (string-downcase (string key))
-        (typecase value
-          (float  (format nil "~,vf" *svg-coordinate-precision* value))
-          (real  (format nil "~,vf" *svg-coordinate-precision* (coerce value 'double-float)))
-          (string value)
-          (symbol (string-downcase (symbol-name value)))
-          (t (format nil "~a" value)))))
+        (style-val->string value)))
 
 
 (defun resource-p (x)
@@ -42,7 +46,7 @@
 (defun style->list (style)
   (loop for (k v) on style
         by #'cddr
-        collect (list (string-downcase (string k)) v)))
+        collect (list (string-downcase (string k)) (style-val->string v))))
 
 
 (defun matrix->svg-transform (mat)
@@ -122,7 +126,6 @@
   (let* ((params (element-params element))
          (w (getf params :w)) (h (getf params :h))
          (rx (or (getf params :rx) 0)) (ry (or (getf params :ry) 0)))
-    (print (element->placement-mat element))
     (if (element-affine-p element)
         (svg-emit backend element "rect"
                   (append (list (attr "x" (- (/ w 2)))

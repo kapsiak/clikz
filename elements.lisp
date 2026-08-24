@@ -47,36 +47,6 @@
    (index :initarg :index :accessor element-index :initform 0)
    (boundary :initarg :boundary :reader element-boundary)))
 
-(defun emit (type params
-             &key transform viewport style clip name  anchor boundary)
-  (let (element
-        (s (or style *style*))
-        (tr (or transform *transform*))
-        (c (or clip *clip*))
-        (idx (incf *element-index*))
-        (v (or viewport *viewport*)))
-    (flet ((build-element (params)
-             (make-instance 'element
-               :type type
-               :transform tr :viewport v :style  s :clip c
-               :anchor anchor :boundary boundary
-               :index idx :params (deep-resolve params))))
-      (if (deep-delayed-p params)
-          (progn
-            (setq element (delay (first (push (build-element params) *elements*))))
-            (push element *pending*))
-          (progn
-            (setq element (first (push (build-element params) *elements*)))
-            (push element *elements*)))
-      (when name
-        (setf (gethash (cons name v) *names*) element)))))
-
-
-(defun emit-absolute (type params &key style clip name anchor boundary)
-  (emit type params
-        :transform +identity-4+
-        :style (or style *style*) :clip (or clip *clip*)
-        :name name :anchor anchor :boundary boundary))
 
 (defun element-centroid (element)
   (primitive-centroid (element-type element) (element-params element)))
@@ -101,3 +71,17 @@
 (defun getf-elem (elem key)
   (getf (element-params elem) key))
 
+
+(defmethod print-object ((obj element) stream)
+  (if *print-readably*
+      (call-next-method)
+      (print-unreadable-object (obj stream :type t :identity t)
+        (format stream "~A :TRANSFORM ~S :VIEWPORT ~S :PARAMS ~S :STYLE ~S :CLIP ~S :ANCHOR ~S :BOUNDARY ~S"
+                (if (slot-boundp obj 'type) (element-type obj) :unbound)
+                (if (slot-boundp obj 'transform) (element-transform obj) :unbound)
+                (if (slot-boundp obj 'viewport) (element-viewport obj) :unbound)
+                (if (slot-boundp obj 'params) (element-params obj) :unbound)
+                (if (slot-boundp obj 'style) (element-style obj) :unbound)
+                (if (slot-boundp obj 'clip) (element-clip obj) :unbound)
+                (if (slot-boundp obj 'anchor) (element-anchor obj) :unbound)
+                (if (slot-boundp obj 'boundary) (element-boundary obj) :unbound)))))

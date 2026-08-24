@@ -11,11 +11,27 @@
 (defvar *viewport* nil)
 (defvar *transform* +identity-4+)
 (defvar *style* nil)
+(defvar *style-list* (make-hash-table))
 (defvar *path-length-cache* (make-hash-table))
+
+
+(defun defstyle (name  style)
+  (setf (gethash name *style-list*) (lambda () style))) 
+
+(defun parse-style (style)
+  (let (output)
+    (loop while (plusp (length style)) 
+          for style-key = (pop style) do
+            (multiple-value-bind (val found) (gethash style-key *style-list*)
+              (if found
+                  (setf style (append (funcall val) style))
+                  (setf output (append  output (list style-key (pop style)))))))
+    output))
+
 
 (defun merge-style (orig updates)
   (let (( ret (copy-tree  orig)))
-    (loop for (key value) on updates by #'cddr
+    (loop for (key value) on (parse-style updates) by #'cddr
           do
              (setf (getf ret key) value))
     ret))
@@ -62,19 +78,6 @@
                 (if (slot-boundp obj 'proj) (viewport-proj obj) :unbound)
                 (if (slot-boundp obj 'placement) (viewport-placement obj) :unbound)))))
 
-(defmethod print-object ((obj element) stream)
-  (if *print-readably*
-      (call-next-method)
-      (print-unreadable-object (obj stream :type t :identity t)
-        (format stream "~A :TRANSFORM ~S :VIEWPORT ~S :PARAMS ~S :STYLE ~S :CLIP ~S :ANCHOR ~S :BOUNDARY ~S"
-                (if (slot-boundp obj 'type) (element-type obj) :unbound)
-                (if (slot-boundp obj 'transform) (element-transform obj) :unbound)
-                (if (slot-boundp obj 'viewport) (element-viewport obj) :unbound)
-                (if (slot-boundp obj 'params) (element-params obj) :unbound)
-                (if (slot-boundp obj 'style) (element-style obj) :unbound)
-                (if (slot-boundp obj 'clip) (element-clip obj) :unbound)
-                (if (slot-boundp obj 'anchor) (element-anchor obj) :unbound)
-                (if (slot-boundp obj 'boundary) (element-boundary obj) :unbound)))))
 
 
 (defun resolve-name (name &optional viewport)
@@ -92,15 +95,43 @@
         (*resource-index* 0)
         (*resources* (make-hash-table :test #'equal))
         (*names* (make-hash-table :test #'equal))
-        (*viewport* (or *viewport* (make-instance 'viewport)))
+        (*viewport* (or *viewport* (make-page-viewport)))
         (*transform* +identity-4+)
         (*style* nil))
     (apply func args)
-    (loop for key being each hash-key of *names*
-            using (hash-value value)
-          do (format t "Key: ~S, Value: ~S~%" key value))
-
     (loop while *pending* do
       (resolve (pop *pending*)))
+    (print (length *elements*))
     (list (nreverse *elements*) *resources*)))
 
+
+(defun emit (type params
+             &key transform viewport style clip name  anchor boundary)
+  (let (element
+        (s (or style *style*))
+        (tr (or transform *transform*))
+        (c (or clip *clip*))
+        (idx (incf *element-index*))
+        (v (or viewport *viewport*)))
+    (flet ((build-element (params)
+             (make-instance 'element
+               :type type
+               :transform tr :viewport v :style  s :clip c
+               :anchor anchor :boundary boundary
+               :index idx :params (deep-resolve params))))
+      (if (deep-delayed-p params)
+          (progn
+            (setq element (delay (first (push (build-element params) *elements*))))
+            (print (length *elements*))
+            (push element *pending*))
+          (progn
+            (setq element (first (push (build-element params) *elements*)))))
+      (when name
+        (setf (gethash (cons name v) *names*) element)))))
+
+
+(defun emit-absolute (type params &key style clip name anchor boundary)
+  (emit type params
+        :transform +identity-4+
+        :style (or style *style*) :clip (or clip *clip*)
+        :name name :anchor anchor :boundary boundary))
