@@ -460,7 +460,18 @@
 (defun transform-normal-4 (m n)
   (mv-* (m-4-4-t (invert-4 m)) n))
 
-(defun p (&rest coords)
+(defun vec-p (&rest coords)
   (ecase (length coords)
     (2 (vec-4 (first coords) (second coords) 0 1))
     (3 (vec-4 (first coords) (second coords) (third coords) 1))))
+
+(defun vec-dir (&rest coords)
+  (ecase (length coords)
+    (2 (vec-4 (first coords) (second coords) 0 0))
+    (3 (vec-4 (first coords) (second coords) (third coords) 0))))
+
+(defun lerp (a b u)
+  (v+ (scale-vec (- 1d0 u) a) (scale-vec u b)))
+
+(defun magnitude (v)
+  (sqrt (dot v v)))

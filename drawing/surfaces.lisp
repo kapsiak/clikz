@@ -7,9 +7,9 @@
            (idx->v (i) (+ v0 (* i v-step))))
       (loop for i from 0 to steps-v
             collect (loop for j from 0 to steps-u
-                          collect (funcall f
-                                           (idx->u j)
-                                           (idx->v i)))))))
+                          collect (apply #'p (funcall f
+                                              (idx->u j)
+                                              (idx->v i))))))))
 
 (defun quad-normal (p00 p10 p01)
   (normalize (cross-3 (v- p10 p00) (v- p01 p00))))
@@ -36,11 +36,13 @@
                  for p01 = (nth j next)
                  do (emit :face
                           (list :points (list p00 p10 p11 p01)
-                                :normal (quad-normal p00 p10 p01))
-                          :style (merge-style *style* style)
-                          :back-style (and back-style
-                                           (merge-style *style* back-style))
-                          :cull cull))))
+                                :normal (quad-normal p00 p10 p01)
+                                :back-style (and back-style
+                                                 (merge-style *style* back-style))
+                                :cull cull
+                                )
+                          :style (merge-style *style* style)))))
+
 
 (defun draw-surface (f &key (u0 0d0) (u1 1d0) (steps-u 20)
                             (v0 0d0) (v1 1d0) (steps-v 20)

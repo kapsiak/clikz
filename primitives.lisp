@@ -11,6 +11,12 @@
                                  :face ; :points :normal
                                  ))
 
+(defgeneric primitive-frame (kind))
+(defmethod primitive-frame ((kind t)) :intrinsic)
+(defmethod primitive-frame ((kind (eql :path))) :extrinsic)
+(defmethod primitive-frame ((kind (eql :polyline))) :extrinsic)
+(defmethod primitive-frame ((kind (eql :segment))) :extrinsic)
+(defmethod primitive-frame ((kind (eql :face))) :extrinsic)
 
 (defgeneric primitive-centroid (kind params))
 

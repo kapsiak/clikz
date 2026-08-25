@@ -2,7 +2,6 @@
 
 (defvar *elements* nil)
 (defvar *element-index* nil)
-(defvar *resource-index* nil)
 (defvar *pending* nil)
 (defvar *clip* nil)
 (defvar *element-index* nil)
@@ -106,41 +105,48 @@
 
 
 
-(defun unwrap-static (val)
-  (if (world-space-point-p val)
-      (world-space-point-vec val)
-      val))
+(defun placement-transform (place)
+  (cond ((delayed-p place) (delay (placement-transform (resolve place))))
+        ((and (arrayp place) (= (array-rank place) 2))  place)                  
+        (t (mat-4-translate (vec-x place) (vec-y place) (vec-z place)))))
+
+(defun p (&rest coords)
+  (if (and (= (length coords) 1) (arrayp (car coords))) 
+      (progn (mv-* *transform* (car coords)))
+      (mv-* *transform* (apply #'vec-p coords))))
+
+(defun dir (&rest coords)
+  (if (and (= (length coords) 1) (arrayp (car coords))) 
+      (progn (mv-* *transform* (car coords)))
+      (mv-* *transform* (apply #'vec-dir coords)))))
 
 (defun emit (type params
              &key transform viewport style clip name  anchor boundary)
   (let (element
         (s (or style *style*))
-        (tr (or transform *transform*))
+        (tr1 *transform*)
         (c (or clip *clip*))
         (idx (incf *element-index*))
         (v (or viewport *viewport*)))
     (flet ((build-element (params)
-             (let* ((resolved (deep-resolve params))
-                    (has-static (deep-call #'world-space-point-p resolved
-                                           :merge (lambda (x y) (and x y))))
-                    (unwrapped (deep-call #'unwrap-static resolved)))
-               (print unwrapped)
-               
+             (let* ((tr (ecase (primitive-frame type)
+                          (:intrinsic (or (resolve transform) tr1))
+                          (:extrinsic +identity-4+)))
+                    (resolved (deep-resolve params)))
                (make-instance 'element
                  :type type
-                 :transform (if has-static +identity-4+ tr)
-                 :viewport v :style s :clip c
+                 :transform tr :viewport v :style s :clip c
                  :anchor anchor :boundary boundary
-                 :index idx :params unwrapped))))
-      (if (deep-delayed-p params)
-          (progn
-            (setq element (delay
-                           (first (push (build-element params) *elements*))))
-            (push element *pending*))
-          (progn
-            (setq element (first (push (build-element params) *elements*)))))
-      (when name
-        (setf (gethash (cons name v) *names*) element)))))
+                 :index idx :params resolved)))))
+    (if (deep-delayed-p params)
+        (progn
+          (setq element (delay
+                         (first (push (build-element params) *elements*))))
+          (push element *pending*))
+        (progn
+          (setq element (first (push (build-element params) *elements*)))))
+    (when name
+      (setf (gethash (cons name v) *names*) element)))))
 
 
 (defun emit-absolute (type params &key style clip name anchor boundary)

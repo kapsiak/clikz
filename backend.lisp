@@ -36,7 +36,9 @@
   (progn
     (init-backend backend)
     (when resources
-      (maphash (lambda (k r) (render-resource backend r)) resources))
+      (maphash (lambda (k r)
+                 (declare (ignore k))
+                 (render-resource backend r)) resources))
     (dolist (element (sort-elements elements))
       (if (supports-p backend (element-type element))
           (render-element backend (element-type element) element)

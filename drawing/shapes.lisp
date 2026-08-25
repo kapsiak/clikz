@@ -6,7 +6,6 @@
       (let* ((dx (vec-x dir)) (dy (vec-y dir))
              (tx (unless (< (abs dx) +epsilon+) (/ hw (abs dx))))
              (ty (unless (< (abs dy) +epsilon+) (/ hh (abs dy))))
-             (x (print tx))
              (s (cond ((and tx ty) (min tx ty))
                       (tx tx)
                       (ty ty)
