@@ -1,5 +1,17 @@
 (in-package :quickdraw)
 
+(defun rect-boundary (w h)
+  (let ((hw (/ w 2d0)) (hh (/ h 2d0)))
+    (lambda (dir)
+      (let* ((dx (vec-x dir)) (dy (vec-y dir))
+             (tx (unless (< (abs dx) +epsilon+) (/ hw (abs dx))))
+             (ty (unless (< (abs dy) +epsilon+) (/ hh (abs dy))))
+             (x (print tx))
+             (s (cond ((and tx ty) (min tx ty))
+                      (tx tx)
+                      (ty ty)
+                      (t (error 'zero-vector :vector dir)))))
+        (vec-4 (* s dx) (* s dy) 0 1)))))
 
 (defun rect-anchors (w h)
   (let ((hw (/ w 2d0)) (hh (/ h 2d0)))
@@ -11,6 +23,7 @@
         (:east (vec-4 hw 0 0 1)) (:west (vec-4 (- hw) 0 0 1))
         (:ne (vec-4 hw hh 0 1)) (:nw (vec-4 (- hw) hh 0 1))
         (:se (vec-4 hw (- hh) 0 1)) (:sw (vec-4 (- hw) (- hh) 0 1))))))
+
 
 (defun ellipse-anchors (rx ry)
   (lambda (key &rest args)
@@ -38,7 +51,7 @@
         (list :w w :h h :rx rx :ry ry)
         :name name :style (merge-style *style* style)
         :anchor (rect-anchors w h)
-        :boundary nil));(rect-boundary w h)))
+        :boundary (rect-boundary w h)))
 
 (defun draw-circle (r &key name style)
   (emit :circle
@@ -60,11 +73,9 @@
 
 (defun draw-regular-polygon (sides r &key name style)
   (draw-path 
-    (loop for i below sides
-                       for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
-                       collect (p (* r (cos theta))
-                                  (* r (sin theta))))
-   :closed t
-   :name name
-   :style style))
+   (loop for i below sides
+         for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
+         collect (p (* r (cos theta))
+                    (* r (sin theta))))
+   :closed t :name name :style style))
 

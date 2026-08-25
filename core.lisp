@@ -105,6 +105,12 @@
     (list (nreverse *elements*) *resources*)))
 
 
+
+(defun unwrap-static (val)
+  (if (world-space-point-p val)
+      (world-space-point-vec val)
+      val))
+
 (defun emit (type params
              &key transform viewport style clip name  anchor boundary)
   (let (element
@@ -114,15 +120,22 @@
         (idx (incf *element-index*))
         (v (or viewport *viewport*)))
     (flet ((build-element (params)
-             (make-instance 'element
-               :type type
-               :transform tr :viewport v :style  s :clip c
-               :anchor anchor :boundary boundary
-               :index idx :params (deep-resolve params))))
+             (let* ((resolved (deep-resolve params))
+                    (has-static (deep-call #'world-space-point-p resolved
+                                           :merge (lambda (x y) (and x y))))
+                    (unwrapped (deep-call #'unwrap-static resolved)))
+               (print unwrapped)
+               
+               (make-instance 'element
+                 :type type
+                 :transform (if has-static +identity-4+ tr)
+                 :viewport v :style s :clip c
+                 :anchor anchor :boundary boundary
+                 :index idx :params unwrapped))))
       (if (deep-delayed-p params)
           (progn
-            (setq element (delay (first (push (build-element params) *elements*))))
-            (print (length *elements*))
+            (setq element (delay
+                           (first (push (build-element params) *elements*))))
             (push element *pending*))
           (progn
             (setq element (first (push (build-element params) *elements*)))))

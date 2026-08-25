@@ -60,9 +60,11 @@
 
 (defun deep-resolve (l)
   (cond
-    ((consp l)
-     (cons (deep-resolve (first l)) (deep-resolve (rest l))))
-    (t
-     (resolve l))))
+    ((consp l) (cons (deep-resolve (first l)) (deep-resolve (rest l))))
+    (t (resolve l))))
 
+(defun deep-call (func l &key (merge #'cons))
+  (cond
+    ((consp l) (funcall merge (funcall func (first l)) (deep-call func (rest l))))
+    (t (funcall func l))))
 

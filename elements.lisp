@@ -62,7 +62,7 @@
     (let* ((n (getf (element-params element) :normal))
            (eye (elem->eye element))
            (nz (vec-z (mv-* eye (vec-4 (vec-x n) (vec-y n) (vec-z n) 0)))))
-      (if (> nz 0) :front :back))))
+      (if (< nz 0) :front :back))))
 
 (defun clip->page (vec)
   (let ((w (vec-w vec)))
@@ -70,7 +70,6 @@
 
 (defun getf-elem (elem key)
   (getf (element-params elem) key))
-
 
 (defmethod print-object ((obj element) stream)
   (if *print-readably*
