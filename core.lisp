@@ -137,16 +137,16 @@
                  :type type
                  :transform tr :viewport v :style s :clip c
                  :anchor anchor :boundary boundary
-                 :index idx :params resolved)))))
-    (if (deep-delayed-p params)
-        (progn
-          (setq element (delay
-                         (first (push (build-element params) *elements*))))
-          (push element *pending*))
-        (progn
-          (setq element (first (push (build-element params) *elements*)))))
-    (when name
-      (setf (gethash (cons name v) *names*) element)))))
+                 :index idx :params resolved))))
+      (if (or (deep-delayed-p params) (delayed-p transform))
+          (progn
+            (setq element (delay
+                           (first (push (build-element params) *elements*))))
+            (push element *pending*))
+          (progn
+            (setq element (first (push (build-element params) *elements*)))))
+      (when name
+        (setf (gethash (cons name v) *names*) element)))))
 
 
 (defun emit-absolute (type params &key style clip name anchor boundary)
