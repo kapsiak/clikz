@@ -1,9 +1,12 @@
 (in-package :quickdraw)
 
 (defparameter +primitive-types+ (list
+                                 ;; Intrinsic
                                  :rect ; :x :y :w :h
                                  :circle ; :r :x ;y
                                  :ellipse ; :rx :ry :x :y
+
+                                 ;; Extrinsic
                                  :path ; :points :closed
                                  :polyline ; :points :closed
                                  :segment ; :start :end
