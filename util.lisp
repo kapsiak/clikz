@@ -47,17 +47,26 @@
                    (mapcar #'resolve args))))))
 
 
+
+(defgeneric deep-walk (func object))
+
+(defmethod deep-walk (func (object t))
+  (funcall func object))
+
+(defmethod deep-walk (func (object cons))
+  (cons (funcall func (first object))
+        (deep-walk func (rest object))))
+
+
 (defun deep-delayed-p (l)
-  (cond
-    ((consp l)
-     (or (deep-delayed-p (first l)) (deep-delayed-p (rest l))))
-    (t
-     (delayed-p l))))
+  (deep-walk
+   (lambda (x) (when (delayed-p x)
+                 (return-from deep-delayed-p t)))
+   l)
+  nil)
 
 (defun deep-resolve (l)
-  (cond
-    ((consp l) (cons (deep-resolve (first l)) (deep-resolve (rest l))))
-    (t (resolve l))))
+  (deep-walk #'resolve l))
 
 (defun call-delayed (func &rest args)
   (if (deep-delayed-p args)
@@ -67,4 +76,4 @@
 
 (defun clamp (val low high)
   (max low (min val high)))
-  
+
