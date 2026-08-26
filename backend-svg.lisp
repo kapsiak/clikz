@@ -153,7 +153,12 @@
   (let ((r (getf (element-params element) :r)))
     (if (element-affine-p element)
         (svg-emit backend element "circle"
-                  (append (list (attr "cx" 0) (attr "cy" 0) (attr "r" r))
+                  (append (list (attr "cx" 0)
+                                (attr "cy" 0)
+                                (attr "r" r)
+                                (attr "transform"
+                                      (matrix->svg-transform
+                                       (element->placement-mat element))))
                           (style->list (element-style element))))
         (let* ((trans (elem->placement-func element))
                (pts (loop for i below 32
@@ -173,7 +178,10 @@
     (if (element-affine-p element)
         (svg-emit backend element "ellipse"
                   (append (list (attr "cx" 0) (attr "cy" 0)
-                                (attr "rx" rx) (attr "ry" ry))
+                                (attr "rx" rx) (attr "ry" ry)
+                                (attr "transform"
+                                      (matrix->svg-transform
+                                       (element->placement-mat element))))
                           (style->list (element-style element))))
         (let* ((trans (elem->placement-func element))
                (pts (loop for i below 32
