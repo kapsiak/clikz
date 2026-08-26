@@ -36,7 +36,7 @@
     ret))
 
 (defmacro with-transform (transform &rest body)
-  `(let ((*transform* (mm-* ,transform *transform* )))
+  `(let ((*transform* (call-delayed #'mm-* *transform* ,transform )))
      ,@body))
 
 (defmacro with-style (style &rest body)
@@ -118,7 +118,7 @@
 (defun dir (&rest coords)
   (if (and (= (length coords) 1) (arrayp (car coords))) 
       (progn (mv-* *transform* (car coords)))
-      (mv-* *transform* (apply #'vec-dir coords)))))
+      (mv-* *transform* (apply #'vec-dir coords))))
 
 (defun emit (type params
              &key transform viewport style clip name  anchor boundary)
@@ -130,7 +130,7 @@
         (v (or viewport *viewport*)))
     (flet ((build-element (params)
              (let* ((tr (ecase (primitive-frame type)
-                          (:intrinsic (or (resolve transform) tr1))
+                          (:intrinsic (or (resolve transform) (resolve tr1)))
                           (:extrinsic +identity-4+)))
                     (resolved (deep-resolve params)))
                (make-instance 'element
@@ -138,7 +138,7 @@
                  :transform tr :viewport v :style s :clip c
                  :anchor anchor :boundary boundary
                  :index idx :params resolved))))
-      (if (or (deep-delayed-p params) (delayed-p transform))
+      (if (or (deep-delayed-p params) (delayed-p transform) (delayed-p tr1))
           (progn
             (setq element (delay
                            (first (push (build-element params) *elements*))))
@@ -148,9 +148,3 @@
       (when name
         (setf (gethash (cons name v) *names*) element)))))
 
-
-(defun emit-absolute (type params &key style clip name anchor boundary)
-  (emit type params
-        :transform +identity-4+
-        :style (or style *style*) :clip (or clip *clip*)
-        :name name :anchor anchor :boundary boundary))
