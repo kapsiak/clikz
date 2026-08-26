@@ -128,7 +128,7 @@
 
 (defmethod segment-length ((s path-segment-bezier))
   (labels ((walk (p0 p1 p2 p3)
-             (if (bez3-straight-p p0 p1 p2 p3 *path-tolerance*)
+             (if (bez3-straight-p p0 p1 p2 p3)
                  (magnitude (v- p3 p0))
                  (multiple-value-bind (l0 l1 l2 m r2 r1 r3)
                      (bez3-divide p0 p1 p2 p3 0.5d0)
