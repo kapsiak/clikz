@@ -2,6 +2,10 @@
 
 (defconstant +epsilon+ 1d-9)
 
+(define-condition zero-vector (error)
+  ((vec :initarg :vector :reader zero-vector-vec))
+  (:report (lambda (c s)
+             (format s "Vector is zero: ~s" (zero-vector-vec c)))))
 
 
 (eval-when (:compile-toplevel)
@@ -78,7 +82,7 @@
                 (type (simple-array ,element-type (,n)) vec))
        (let ((l (sqrt (,dot  vec vec))))
          (if (< l +epsilon+)
-             (error 'zero-vec :vector vec)
+             (error 'zero-vector :vector vec)
              (,sv (/ 1d0 l) vec))))))
 
 
