@@ -1,9 +1,13 @@
 (in-package :quickdraw)
 
+(defparameter *path-tolerance* 1d-4)
 
 (defclass path ()
   ((segments     :initarg :segments  :reader path-segments)
    (closed       :initarg :closed    :initform nil :reader path-closed-p)))
+
+(defun make-path (segments &key closed)
+  (make-instance 'path :segments segments :closed closed))
 
 (defclass path-segment ()
   ((len :accessor segment-len :initform nil)))
@@ -19,28 +23,27 @@
    (p2 :initarg :p2 :reader bezier-p2)
    (p3 :initarg :p3 :reader bezier-p3)))
 
+
+
+
+
 (defgeneric segment-point (segment u))
 (defgeneric segment-derivative (segment u))
-(defgeneric segment-length (segment &key tolerance))
-(defgeneric segment-param-at-length (segment l &key tolerance))
-(defgeneric segment->commands (seg first))
-(defgeneric segment-transform (seg m))
+(defgeneric segment-length (segment) )
+(defgeneric segment-param-at-length (segment l))
 (defgeneric segment-reverse (seg))
-(defgeneric segment-points (seg))   
+(defgeneric segment->commands (seg first))
 
+
+;;; Path operations
 
 (defun path-length (path)
   (loop for s in (path-segments path)
         sum (segment-length s)))
 
 
-(defun path-join (a b)
-  (make-instance 'path
-    :segments (append (copy-list (path-segments a)) (copy-list (path-segments b)))
-    :closed (path-closed-p b)))
-
-(defmethod segment-length :around ((s path-segment) &key tolerance)
-  (declare (ignore tolerance))
+(defmethod segment-length :around ((s path-segment))
+  (declare (ignore))
   (or (segment-len s)
       (setf (segment-len s) (call-next-method))))
 
@@ -55,15 +58,25 @@
   (declare (ignore u))
   (v- (segment-end s) (segment-start s)))
 
-(defmethod segment-length ((s path-segment-line) &key tolerance)
-  (declare (ignore tolerance))
+(defmethod segment-length ((s path-segment-line))
+  (declare (ignore ))
   (magnitude (v- (segment-end s) (segment-start s))))
 
 
-(defmethod segment-param-at-length ((s path-segment-line) len &key tolerance)
-  (declare (ignore tolerance))
+(defmethod segment-param-at-length ((s path-segment-line) len)
+  (declare (ignore ))
   (let ((total (segment-length s)))
     (if (< total +epsilon+) 0d0 (/ len total))))
+
+(defmethod segment->commands ((seg path-segment-line) first)
+  (if first
+      (list :M (segment-start seg) :L (segment-end seg))
+      (list :L (segment-end seg))))
+
+(defmethod segment-reverse ((s path-segment-line))
+  (make-instance 'path-segment-line
+    :start (segment-end s)
+    :end (segment-start s)))
 
 
 ;; Bezier is not
@@ -88,17 +101,15 @@
         (v+ (scale-vec (* 6 v u) (v- (bezier-p2 s) (bezier-p1 s)))
             (scale-vec (* 3 u u) (v- (bezier-p3 s) (bezier-p2 s)))))))
 
-;; Straight if approximately satisfies triangle inequality 
 
-(defun bez3-straight-p (p0 p1 p2 p3 tolerance)
+(defun bez3-straight-p (p0 p1 p2 p3)
   (< (- (+ (magnitude (v- p1 p0))
            (magnitude (v- p2 p1))
            (magnitude (v- p3 p2)))
         (magnitude (v- p3 p0)))
-     tolerance))
+     *path-tolerance*))
 
 
-;; Use de casteljaus algo to split into two at parameter
 (defun bez3-divide (p0 p1 p2 p3 u)
   (let* ((p01 (lerp p0 p1 u))
          (p12 (lerp p1 p2 u))
@@ -110,94 +121,113 @@
 
 (defun bez3-partial (p u)
   (multiple-value-bind (l0 l1 l2 m r2 r1 r3)
-      (bez3-divide (bezier-p0 p) (bezier-p1 p) (bezier-p2 p) (bezier-p3 s) u)
+      (bez3-divide (bezier-p0 p) (bezier-p1 p) (bezier-p2 p) (bezier-p3 p) u)
     (declare (ignore r1 r2 r3))
     (make-instance 'path-segment-bezier :p0 l0 :p1 l1 :p2 l2 :p3 m)))
 
 
-(defmethod segment-length ((s path-segment-bezier) &key (tolerance 1d-4))
+(defmethod segment-length ((s path-segment-bezier))
   (labels ((walk (p0 p1 p2 p3)
-             (if (bez3-straight-p p0 p1 p2 p3 tolerance)
+             (if (bez3-straight-p p0 p1 p2 p3 *path-tolerance*)
                  (magnitude (v- p3 p0))
                  (multiple-value-bind (l0 l1 l2 m r2 r1 r3)
                      (bez3-divide p0 p1 p2 p3 0.5d0)
                    (+ (walk l0 l1 l2 m) (walk m r2 r1 r3))))))
     (walk (bezier-p0 s) (bezier-p1 s) (bezier-p2 s) (bezier-p3 s))))
 
-(defmethod segment-param-at-length ((s path-segment-bezier) len
-                                    &key (tolerance 1d-4))
+(defmethod segment-param-at-length ((s path-segment-bezier) len)
   (let ((total (segment-length s)))
     (if (< total +epsilon+) 0d0
         (labels ((bisect (start end)
                    (let* ((mid (/ (+ start end) 2d0))
                           (sub (bez3-partial s mid))
                           (l (segment-length sub)))
-                     (cond ((< (- end start) tolerance) mid)
+                     (cond ((< (- end start) *path-tolerance*) mid)
                            ((< l len) (bisect mid end))
                            (t (bisect start mid))))))
           (bisect 0d0 1d0)))))
 
-
-(defun path-point (path u &key (by :arclength) (tolerance 1d-4))
-  (multiple-value-bind (idx local seg)
-      (path-segment-at-param path (param-at path u :by by :tolerance tolerance))
-    (declare (ignore idx))
-    (segment-point seg local)))
+(defmethod segment-reverse ((s path-segment-bezier))
+  (make-instance 'path-segment-bezier
+    :p0 (bezier-p3 s) :p1 (bezier-p2 s)
+    :p2 (bezier-p1 s) :p3 (bezier-p0 s)))
 
 
-(defun path-length (path &key (tolerance 1d-4))
-  (or (path-total-length path)
-      (setf (path-total-length path)
-            (loop for seg in (path-segments path)
-                  sum (segment-length seg
-                                      :tolerance tolerance)))))
+(defmethod segment->commands ((seg path-segment-bezier) first)
+  (if first
+      (list :M (bezier-p0 seg) :C (bezier-p1 seg) (bezier-p2 seg) (bezier-p3 seg))
+      (list :C (bezier-p1 seg) (bezier-p2 seg) (bezier-p3 seg))))
 
-(defun param-at (path u &key (by :arclength) (tolerance 1d-4))
+
+;; basic path constructions 
+
+
+(defun make-path-line (start end)
+  (make-path (list (make-instance 'path-segment-line :start start :end end))))
+
+(defun make-path-bezier (p0 p1 p2 p3)
+  (make-path (list (make-instance 'path-segment-bezier
+                     :p0 p0 :p1 p1 :p2 p2 :p3 p3))))
+
+(defun path-from-points (points &key closed)
+  (make-path
+   (loop for tail on points
+         for a = (first tail)
+         for b = (second tail)
+         while b
+         collect (make-instance 'path-segment-line :start a :end b))
+   :closed closed))
+
+
+
+
+(defun arclength->param (path s)
+  (loop for i below (length (path-segments path))
+        for seg in (path-segments path)
+        with total = 0
+        for len = (segment-length seg)
+        when (<= s (+ total len))
+          return (+ i (segment-param-at-length
+                       seg (- s total)))
+        do (incf total len)
+        finally (return (coerce (length (path-segments path)) 'double-float))))
+
+
+(defun path-param-at (path u &key (by :arclength))
   (ecase by
     (:parameter  u)
-    (:arclength  (arclength->param path u :tolerance tolerance))))
+    (:arclength  (arclength->param path u))))
+
 
 (defun path-segment-at-param (path u)
   (let* ((n (length (path-segments path)))
          (i (clamp (floor u) 0 (1- n))))
+    (when (zerop n)
+      (error "Path has no segments."))
     (values i (- u i) (nth i (path-segments path)))))
 
 
-(defun arclength->param (path s &key (tolerance 1d-4))
-  (loop for i below (length (path-segments path))
-        for seg in (path-segments path)
-        with total = 0
-        for len = (segment-length seg :tolerance tolerance)
-        when (<= s (+ total len))
-          return (+ i (segment-param-at-length
-                       seg (- s total)
-                       :tolerance tolerance))
-        do (incf total len)
-        finally (return (length (path-segments path)))))
-
-
-
-(defun param-at (path u &key (by :arclength))
-  (ecase by
-    (:parameter u)
-    (:arclength (arclength->param path u))))
-
 
 (defun path-point (path u &key (by :arclength))
-  (multiple-value-bind (i local seg)
-      (path-segment-at-param path (param-at path u :by by))
-    (declare (ignore i))
+  (multiple-value-bind (idx local seg)
+      (path-segment-at-param path
+                             (path-param-at path
+                                            (* u (length (path-segments path)))
+                                            :by by ))
+    (declare (ignore idx))
     (segment-point seg local)))
+
+
 
 (defun path-tangent (path u &key (by :arclength))
   (multiple-value-bind (idx local seg)
-      (path-segment-at-param path (param-at path u :by by))
+      (path-segment-at-param path (path-param-at path u :by by))
     (declare (ignore idx))
     (segment-derivative seg local)))
 
 
-(defun path-frame (path u &key (by :arclength)
-                               (up (vec-4 0 1 0 0)))
+(defun path-frame (path u &key (by :arclength) (up (vec-4 0 1 0 0)))
+  
   (let* ((point (path-point path u :by by))
          (tangent (normalize (path-tangent path u :by by)))
          (normal (normalize
@@ -206,24 +236,33 @@
          (b (cross-3 (xyz tangent) (xyz normal))))
     (values point tangent normal (vec-4 (vec-x b) (vec-y b) (vec-z b) 0))))
 
+(defun path->commands (path)
+  (let ((commands nil))
+    (loop for seg in (path-segments path)
+          for first = t then nil
+          do (setf commands
+                   (append commands (segment->commands seg first))))
+    (if (path-closed-p path)
+        (append commands (list :Z))
+        commands)))
+
+(defun path-join (a b)
+  (make-path
+   (append (copy-list (path-segments a))
+           (copy-list (path-segments b)))
+   :closed (path-closed-p b)))
+
+(defun path-reverse (path)
+  (make-path
+   (mapcar #'segment-reverse (reverse (path-segments path)))
+   :closed (path-closed-p path)))
+
 (defun frame->transform (pos tangent normal)
   (let ((b (cross-3 (xyz tangent) (xyz normal))))
-    (mat-4-4 (list (vec-x tangent) (vec-y tangent) (vec-z tangent) 0)
-             (list (vec-x normal)  (vec-y normal)  (vec-z normal)  0)
-             (list (vec-x b)       (vec-y b)       (vec-z b)       0)
-             (list (vec-x pos)     (vec-y pos)     (vec-z pos)     1))))
-
-
-
-(defmethod segment->commands ((seg path-segment-line) first)
-  (if first
-      (list :M (segment-start seg) :L (segment-end seg))
-      (list :L (segment-end seg))))
-
-(defmethod segment->commands ((seg path-segment-bezier) first)
-  (if first
-      (list :M (bezier-p0 seg) :C (bezier-p1 seg) (bezier-p2 seg) (bezier-p3 seg))
-      (list :C (bezier-p1 seg) (bezier-p2 seg) (bezier-p3 seg))))
+    (mat-4-4 (list (vec-x tangent) (vec-x normal) (vec-x b)  (vec-x pos))
+             (list (vec-y tangent) (vec-y normal) (vec-y b)  (vec-y pos))
+             (list (vec-z tangent) (vec-z normal) (vec-z b)  (vec-z pos))
+             (list 0 0 0 1))))
 
 
 
@@ -232,6 +271,7 @@
                     for i from 0
                     append (list (if (= i 0) :M :L) p))))
     (if closed (append cmds (list :Z)) cmds)))
+
 
 (defun draw-path (points &key closed name style)
   (emit :path
