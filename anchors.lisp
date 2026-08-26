@@ -45,3 +45,27 @@
        (when f 
          (v+ by
              (mv-* (element-transform e) (apply f args))))))))
+
+
+(defun path-of (name &optional viewport)
+  (getf-elem (resolve-name name viewport) :path))
+
+(defun path-length-at (name)
+  (with-current-viewport v
+    (delay (path-length (path-of name v)))))
+
+(defun path-point-at (name u &key (by :fraction))
+  (with-current-viewport v
+    (delay (path-point (path-of name v) (resolve u) :by by))))
+
+(defun path-tangent-at (name u &key (by :fraction))
+  (with-current-viewport v
+    (delay (path-tangent (path-of name v) (resolve u) :by by))))
+
+(defun path-frame-at (name u &key (by :fraction) up)
+  (with-current-viewport v
+    (delay
+     (multiple-value-bind (pt tangent normal)
+         (path-frame (path-of name v) (resolve u) :by by :up up)
+       (frame->transform pt tangent normal)))))
+
