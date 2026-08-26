@@ -199,23 +199,23 @@
 
 
 (defmethod render-element ((backend svg-backend) (type (eql :path)) element)
-  (let* ((cmds (getf (element-params element) :points))
+  (let* ((commands (path->svg-commands (getf-elem element :path)))
          (trans (elem->placement-func element))
          (d nil))
-    (loop while cmds do
-      (let ((cmd (pop cmds)))
+    (loop while commands do
+      (let ((cmd (pop commands)))
         (ecase cmd
-          (:M (let ((p (pop cmds)))
+          (:M (let ((p (pop commands)))
                 (push (format nil "M ~a" (point-to-pair (funcall trans p))) d)))
-          (:L (let ((p (pop cmds)))
+          (:L (let ((p (pop commands)))
                 (push (format nil "L ~a" (point-to-pair (funcall trans p))) d)))
-          (:C (let ((p1 (pop cmds)) (p2 (pop cmds)) (p3 (pop cmds)))
+          (:C (let ((p1 (pop commands)) (p2 (pop commands)) (p3 (pop commands)))
                 (push (format nil "C ~a"
                               (points-to-tuple (funcall trans p1)
                                                (funcall trans p2)
                                                (funcall trans p3)))
                       d)))
-          (:Q (let ((p1 (pop cmds)) (p2 (pop cmds)))
+          (:Q (let ((p1 (pop commands)) (p2 (pop commands)))
                 (push (format nil "Q ~a"
                               (points-to-tuple (funcall trans p1)
                                                (funcall trans p2)))
