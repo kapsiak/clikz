@@ -6,6 +6,8 @@
                                  :circle ; :r :x ;y
                                  :ellipse ; :rx :ry :x :y
 
+                                 :marker ; :place :dir
+
                                  ;; Extrinsic
                                  :path ; :points :closed
                                  :polyline ; :points :closed
@@ -54,10 +56,6 @@
               do (setf s (v+ s (scale-vec scale (v+ p q))))
               finally (return (vec-4 (vec-x s) (vec-y s) (vec-z s) 1d0))))))
 
-(defun collect-points (x)
-  (cond ((typep x '(simple-array double-float (*))) (list x))
-        ((listp x) (mapcan #'collect-points x))
-        (t nil)))
 
 (defmethod primitive-centroid ((kind (eql :segment)) params)
   (centroid-of-points (list (getf params :start) (getf params :end))))
@@ -80,10 +78,10 @@
         (centroid-of-polygon points)
         (centroid-of-points points))))
 
-(defmethod primitive-centroid ((kind (eql :path)) params)
-  (centroid-of-points (collect-points params)))
 
 (defmethod primitive-centroid ((kind (eql :face)) params)
   (let ((points (getf params :points)))
     (centroid-of-polygon points)))
 
+(defmethod primitive-centroid ((kind (eql :marker)) params)
+  (getf params :at))
