@@ -30,7 +30,22 @@
 
 
 
+(defmethod deep-walk (func (object path))
+  (make-instance 'path
+   :segments (deep-walk func (path-segments object))))
 
+(defmethod deep-walk (func (object path-segment-line))
+  (make-instance 'path-segment-line
+    :start (funcall func (segment-start object))
+    :end (funcall func (segment-end object))))
+  
+(defmethod deep-walk (func (object path-segment-bezier))
+  (make-instance 'path-segment-bezier
+    :p0 (funcall func (bezier-p0 object))
+    :p1 (funcall func (bezier-p1 object))
+    :p2 (funcall func (bezier-p2 object))
+    :p3 (funcall func (bezier-p3 object))))
+  
 
 (defgeneric segment-point (segment u))
 (defgeneric segment-derivative (segment u))
@@ -39,8 +54,6 @@
 (defgeneric segment-reverse (seg))
 (defgeneric segment->commands (seg first))
 
-
-;;; Path operations
 
 (defun path-length (path)
   (loop for s in (path-segments path)

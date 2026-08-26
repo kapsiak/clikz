@@ -7,6 +7,7 @@
   ((elements :accessor svg-backend-elements :initform nil)
    (defs     :accessor svg-backend-defs     :initform nil)
    (stream   :accessor svg-backend-stream   :initarg :stream :initform nil)
+   (fit-extents :accessor svg-backend-fit-extents   :initarg :fit-extents :initform t)
    (width    :accessor svg-backend-width    :initarg :width  :initform 600)
    (height   :accessor svg-backend-height   :initarg :height :initform 600)))
 
