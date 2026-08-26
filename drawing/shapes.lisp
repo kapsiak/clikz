@@ -45,36 +45,44 @@
       (vec-4 (/ (vec-x dir) m) (/ (vec-y dir) m) 0 1))))
 
 
-(defun draw-rect (w h &key rx ry name style)
+(defun draw-rect (w h &key rx ry name style place)
   (emit :rect
         (list :w w :h h :rx rx :ry ry)
+        :transform (when place (placement-transform place))
         :name name :style (merge-style *style* style)
         :anchor (rect-anchors w h)
         :boundary (rect-boundary w h)))
 
-(defun draw-circle (r &key name style)
+(defun draw-circle (r &key name style place)
   (emit :circle
         (list :r r)
         :name name :style (merge-style *style* style)
+        :transform (when place (placement-transform place))
         :anchor (ellipse-anchors r r)
         :boundary (ellipse-boundary r r)))
 
-(defun draw-ellipse (rx ry &key name style)
+(defun draw-ellipse (rx ry &key name style place)
   (emit :ellipse
         (list :rx rx :ry ry)
         :name name :style (merge-style *style* style)
+        :transform (when place (placement-transform place))
         :anchor (ellipse-anchors rx ry)
         :boundary (ellipse-boundary rx ry)))
 
-(defun draw-label (text &key (align :center) (baseline :middle) name style)
+(defun draw-label (text &key (align :center) (baseline :middle) name style place)
   (emit :label (list :text text :align align :baseline baseline)
+        :transform place
         :name name :style (merge-style *style* style)))
 
-(defun draw-regular-polygon (sides r &key name style)
-  (draw-path 
-   (loop for i below sides
-         for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
-         collect (p (* r (cos theta))
-                    (* r (sin theta))))
-   :closed t :name name :style style))
 
+(defun draw-regular-polygon (sides r &key name style place)
+  (with-transform (or place *transform*)
+    (emit :path
+          (list :points (points->command-list 
+                         (loop for i below sides
+                               for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
+                               collect (p (* r (cos theta))
+                                          (* r (sin theta)))))
+
+                :closed t)
+          :name name :style (merge-style *style* style))))
