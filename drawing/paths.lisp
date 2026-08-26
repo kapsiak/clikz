@@ -3,11 +3,16 @@
 (defparameter *path-tolerance* 1d-4)
 
 (defclass path ()
-  ((segments     :initarg :segments  :reader path-segments)
-   (closed       :initarg :closed    :initform nil :reader path-closed-p)))
+  ((segments     :initarg :segments  :reader path-segments)))
 
 (defun make-path (segments &key closed)
-  (make-instance 'path :segments segments :closed closed))
+  (make-instance 'path :segments 
+                 (if (not closed)
+                     segments
+                     (append segments
+                             (list (make-instance 'path-segment-line
+                                     :start (segment-point (car (last segments)) 1)
+                                     :end (segment-point (first segments) 0)))))))
 
 (defclass path-segment ()
   ((len :accessor segment-len :initform nil)))
@@ -249,13 +254,11 @@
 (defun path-join (a b)
   (make-path
    (append (copy-list (path-segments a))
-           (copy-list (path-segments b)))
-   :closed (path-closed-p b)))
+           (copy-list (path-segments b)))))
 
 (defun path-reverse (path)
   (make-path
-   (mapcar #'segment-reverse (reverse (path-segments path)))
-   :closed (path-closed-p path)))
+   (mapcar #'segment-reverse (reverse (path-segments path)))))
 
 (defun frame->transform (pos tangent normal)
   (let ((b (cross-3 (xyz tangent) (xyz normal))))
