@@ -36,3 +36,12 @@
 
 (defun midpoint (place1 place2)
   (between place1 place2 0.5d0))
+
+(defun shifted-by (name by &rest args)
+  (with-current-viewport v
+    (delay
+     (let* ((e (resolve-name name v))
+            (f (element-anchor e)))
+       (when f 
+         (v+ by
+             (mv-* (element-transform e) (apply f args))))))))
