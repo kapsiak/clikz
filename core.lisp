@@ -11,7 +11,6 @@
 (defvar *transform* +identity-4+)
 (defvar *style* nil)
 (defvar *style-list* (make-hash-table))
-(defvar *path-length-cache* (make-hash-table))
 
 
 (defun defstyle (name  style)
