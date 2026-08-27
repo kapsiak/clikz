@@ -7,28 +7,36 @@
   ((elements :accessor svg-backend-elements :initform nil)
    (defs     :accessor svg-backend-defs     :initform nil)
    (stream   :accessor svg-backend-stream   :initarg :stream :initform nil)
-   (fit-extents :accessor svg-backend-fit-extents   :initarg :fit-extents :initform t)
+   (extents  :accessor svg-backend-extents   :initform nil)
+   (padding  :accessor svg-backend-padding   :initform 10)
+   (rendering-defs    :accessor svg-backend-rendering-defs   :initform nil)
    (width    :accessor svg-backend-width    :initarg :width  :initform 600)
    (height   :accessor svg-backend-height   :initarg :height :initform 600)))
 
 
 (defmethod init-backend ((backend svg-backend)))
 
-(defun svg-add (backend element)
-  (push element (svg-backend-elements backend)))
+(defun svg-get-extents (backend)
+  (loop for p in (svg-backend-extents backend)
+        maximizing (vec-x p) into max-x
+        minimizing (vec-x p) into min-x
+        maximizing (vec-y p) into max-y
+        minimizing (vec-y p) into min-y
+        finally (return (values min-x min-y max-x max-y))))
 
-(defun svg-add-def (backend element)
-  (push element (svg-backend-defs backend)))
-
+(defun svg-resource-ref (resource)
+  (format nil "url(#~a)" (resource-id resource)))
 
 (defun style-val->string (value)
   (typecase value
+    (resource  (svg-resource-ref value))
     (color  (color-css value))
     (float  (format nil "~,vf" *svg-coordinate-precision* value))
     (real  (format nil "~,vf" *svg-coordinate-precision* (coerce value 'double-float)))
     (string value)
     (symbol (string-downcase (symbol-name value)))
     (t (format nil "~a" value))))
+
 
 (defun attr (key value)
   (list (string-downcase (string key))
@@ -58,7 +66,15 @@
      (xmls:nodelist->node 
       `("svg" (("width" ,(format nil "~d" (svg-backend-width backend)))
                ("height" ,(format nil "~d" (svg-backend-height backend)))
-               ("xmlns" "http://www.w3.org/2000/svg"))
+               ("xmlns" "http://www.w3.org/2000/svg")
+               ("viewBox" ,(multiple-value-bind (min-x min-y max-x max-y)
+                               (svg-get-extents backend)
+                             (let ((padding (svg-backend-padding backend)))
+                               (format nil "~,vf ~,vf ~,vf ~,vf"
+                                       *svg-coordinate-precision* (- min-x padding)
+                                       *svg-coordinate-precision* (- min-y padding)
+                                       *svg-coordinate-precision* (+ (- max-x min-x) (* 2 padding))
+                                       *svg-coordinate-precision* (+ (- max-y min-y) (* 2 padding)))))))
               ,@(when (svg-backend-defs backend)
                   `(("defs" nil ,@(nreverse (svg-backend-defs backend)))))
               ,@(nreverse (svg-backend-elements backend))))
@@ -72,25 +88,24 @@
 
 
 
-(defun svg-emit (backend element tag attrs &optional text)
+(defun svg-maybe-wrap (element tag attrs &optional text)
   (let* ((node (if text
                    (list tag attrs text)
                    (list tag attrs)))
          (clip (element-clip element)))
-    (svg-add backend
-             (if clip
-                 `("g" (("clip-path" ,(format nil "url(#~a)" (resource-id clip))))
-                       ,node)
-                 node))))
+    (if clip
+        `("g" (("clip-path" ,(format nil "url(#~a)" (resource-id clip))))
+              ,node)
+        node)))
 
 
 
 (defun emit-projected-points (backend element tag points style)
   (let* ((trans (elem->placement-func element))
          (pts (mapcar (lambda (p) (point-to-pair (funcall trans p))) points)))
-    (svg-emit backend element tag
-              (append (list (attr "points" (format nil "~{~a~^ ~}" pts)))
-                      (style->list style)))))
+    (svg-maybe-wrap element tag
+                    (append (list (attr "points" (format nil "~{~a~^ ~}" pts)))
+                            (style->list style)))))
 
 
 (defun render-sampled (backend primitive element)
@@ -98,9 +113,19 @@
                          "polyline" (primitive-sample primitive) (element-style element)))
 
 (defmethod render-primitive :around ((backend svg-backend) (p primitive) element)
-  (if (element-exact-p element)
-      (call-next-method)
-      (render-sampled backend p element)))
+  (let ((e (if (element-exact-p element)
+               (call-next-method)
+               (render-sampled backend p element))))
+    (if (svg-backend-rendering-defs backend)
+        e
+        (progn
+          (push e (svg-backend-elements backend))
+          (let ((transform (elem->placement-func element)))
+            (loop for p in (primitive-extents (element-primitive element))
+                  do (push (funcall transform p)
+                           (svg-backend-extents backend))))))))
+
+
 
 
 (defmethod render-primitive ((backend svg-backend) (p face) element)
@@ -118,40 +143,40 @@
   (let* ((trans (elem->placement-func element))
          (p0 (funcall trans (start p)))
          (p1 (funcall trans (end p))))
-    (svg-emit backend element "line"
-              (append (list (attr "x1" (vec-x p0)) (attr "y1" (vec-y p0))
-                            (attr "x2" (vec-x p1)) (attr "y2" (vec-y p1)))
-                      (style->list (element-style element))))))
+    (svg-maybe-wrap element "line"
+                    (append (list (attr "x1" (vec-x p0)) (attr "y1" (vec-y p0))
+                                  (attr "x2" (vec-x p1)) (attr "y2" (vec-y p1)))
+                            (style->list (element-style element))))))
 
 (defmethod render-primitive ((backend svg-backend) (p rect) element)
-  (svg-emit backend element "rect"
-            (append (list (attr "x" (- (/ (w p) 2)))
-                          (attr "y" (- (/ (h p) 2)))
-                          (attr "width" (w p))
-                          (attr "height" (h p))
-                          (attr "rx" (rx p))
-                          (attr "ry" (ry p))
-                          (attr "transform"
-                                (matrix->svg-transform
-                                 (element->placement-mat element))))
-                    (style->list (element-style element)))))
+  (svg-maybe-wrap element "rect"
+                  (append (list (attr "x" (- (/ (w p) 2)))
+                                (attr "y" (- (/ (h p) 2)))
+                                (attr "width" (w p))
+                                (attr "height" (h p))
+                                (attr "rx" (rx p))
+                                (attr "ry" (ry p))
+                                (attr "transform"
+                                      (matrix->svg-transform
+                                       (element->placement-mat element))))
+                          (style->list (element-style element)))))
 
 (defmethod render-primitive ((backend svg-backend) (p circle) element)
-  (svg-emit backend element "circle"
-            (append (list (attr "cx" 0) (attr "cy" 0) (attr "r" (r p))
-                          (attr "transform"
-                                (matrix->svg-transform
-                                 (element->placement-mat element))))
-                    (style->list (element-style element)))))
+  (svg-maybe-wrap element "circle"
+                  (append (list (attr "cx" 0) (attr "cy" 0) (attr "r" (r p))
+                                (attr "transform"
+                                      (matrix->svg-transform
+                                       (element->placement-mat element))))
+                          (style->list (element-style element)))))
 
 (defmethod render-primitive ((backend svg-backend) (p ellipse) element)
-  (svg-emit backend element "ellipse"
-            (append (list (attr "cx" 0) (attr "cy" 0)
-                          (attr "rx" (rx p)) (attr "ry" (ry p))
-                          (attr "transform"
-                                (matrix->svg-transform
-                                 (element->placement-mat element))))
-                    (style->list (element-style element)))))
+  (svg-maybe-wrap element "ellipse"
+                  (append (list (attr "cx" 0) (attr "cy" 0)
+                                (attr "rx" (rx p)) (attr "ry" (ry p))
+                                (attr "transform"
+                                      (matrix->svg-transform
+                                       (element->placement-mat element))))
+                          (style->list (element-style element)))))
 
 (defmethod render-primitive ((backend svg-backend) (p path) element)
   (let* ((commands (path->svg-commands (geometry p)))
@@ -176,28 +201,56 @@
                                                (funcall trans p2)))
                       d)))
           (:Z (push "Z" d)))))
-    (svg-emit backend element "path"
-              (append (list (attr "d" (format nil "~{~a~^ ~}" (nreverse d))))
-                      (style->list (element-style element))))))
+    (svg-maybe-wrap element "path"
+                    (append (list (attr "d" (format nil "~{~a~^ ~}" (nreverse d))))
+                            (style->list (element-style element))))))
 
 (defmethod render-primitive ((backend svg-backend) (p label) element)
   (let ((pt (elem->placement element (vec-4 0 0 0 1))))
-    (svg-emit backend element "text"
-              (append (list (attr "x" (vec-x pt))
-                            (attr "y" (vec-y pt))
-                            (attr "text-anchor"
-                                  (ecase (align p)
-                                    (:center "middle")
-                                    (:left "start")
-                                    (:right "end")))
-                            (attr "dominant-baseline"
-                                  (ecase (baseline p)
-                                    (:middle "middle")
-                                    (:top "hanging")
-                                    (:bottom "auto"))))
-                      (style->list (element-style element)))
-              (text p))))
+    (svg-maybe-wrap element "text"
+                    (append (list (attr "x" (vec-x pt))
+                                  (attr "y" (vec-y pt))
+                                  (attr "text-anchor"
+                                        (ecase (align p)
+                                          (:center "middle")
+                                          (:left "start")
+                                          (:right "end")))
+                                  (attr "dominant-baseline"
+                                        (ecase (baseline p)
+                                          (:middle "middle")
+                                          (:top "hanging")
+                                          (:bottom "auto"))))
+                            (style->list (element-style element)))
+                    (text p))))
 
 
-(defmethod resource-ref ((backend svg-backend) (resource resource))
-  (format nil "url(#~a)" (resource-id resource)))
+
+
+(defmethod render-resource ((backend svg-backend) (resource clip-resource))
+  (setf (svg-backend-rendering-defs backend) t)
+  (let ((clip-id (resource-id resource))
+        (elems (loop for e in (clip-elements resource)
+                     collect
+                     (render-primitive backend (element-primitive e)  e))))
+    (push `("clipPath" (("id" ,clip-id))
+                       ,@elems)
+          (svg-backend-defs backend)))
+  (setf (svg-backend-rendering-defs backend) nil))
+
+
+
+(defmethod render-resource ((backend svg-backend) (resource linear-gradient-resource))
+  (let ((clip-id (resource-id resource)))
+    (push `("linearGradient"
+            (("id" ,clip-id)
+             ("x1" 0)
+             ("y1" 0)
+             ("x2" ,(format nil "~,2f" (vec-x (gradient-direction resource))))
+             ("y2" ,(format nil "~,2f" (vec-y (gradient-direction resource)))))
+            ,@(loop for stop in (gradient-stops resource)
+                    collect
+                    `("stop"
+                      (("offset" ,(format nil "~d%" (floor (* 100 (car stop)))))
+                       ("stop-color"  ,(color-css (cdr stop)))))))
+          (svg-backend-defs backend))))
+

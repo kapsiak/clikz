@@ -38,6 +38,22 @@
     (when resources
       (maphash (lambda (k r)
                  (declare (ignore k))
-                 (render-resource backend r)) resources))
-    (dolist (element (sort-elements elements))
-      (render-primitive backend (element-primitive element) element))))
+                 (render-resource backend r))
+               resources))
+    (let (extents transform
+          max-x max-y
+          min-x min-y)
+      (dolist (element (sort-elements elements))
+        (render-primitive backend (element-primitive element) element)
+        (setf transform (elem->placement-func element))
+        (loop for p in (primitive-extents (element-primitive element))
+              do (push (funcall transform p) extents)))
+      (multiple-value-bind (a b c d)
+          (loop for p in extents
+                maximizing (vec-x p) into max-x
+                minimizing (vec-x p) into min-x
+                maximizing (vec-y p) into max-y
+                minimizing (vec-y p) into min-y
+                finally (return (values min-x min-y max-x max-y)))
+        (list a b c d)))))
+
