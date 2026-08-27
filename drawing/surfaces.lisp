@@ -4,6 +4,11 @@
   points normal back-style (cull :initform t))
 
 
+(defmethod primitive-sample ((p face) &key (steps 32))
+  (declare (ignore steps))
+  (points p))
+
+
 (defmethod primitive-centroid ((p face))
   (centroid-of-polygon (points p)))
 

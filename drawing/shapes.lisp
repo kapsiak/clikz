@@ -21,8 +21,21 @@
   (align :initform :center)
   (baseline :initform :middle))
 
+(defmethod primitive-sample ((p label) &key (steps 32))
+  (declare (ignore steps))
+  (list (vec-4 0 0 0 1)))
+
 (defmethod primitive-centroid ((p segment))
   (centroid-of-points (list (start p) (end p))))
+
+
+(defmethod primitive-sample ((p segment) &key (steps 32))
+  (declare (ignore steps))
+  (list (start p) (end p)))
+
+(defmethod primitive-sample ((p polyline) &key (steps 32))
+  (declare (ignore steps))
+  (points p))
 
 (defmethod primitive-centroid ((p polyline))
   (centroid-of-points (points p)))
