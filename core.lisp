@@ -2,6 +2,7 @@
 
 (defvar *elements* nil)
 (defvar *element-index* nil)
+(defvar *resource-index* nil)
 (defvar *pending* nil)
 (defvar *clip* nil)
 (defvar *element-index* nil)
@@ -11,6 +12,9 @@
 (defvar *transform* +identity-4+)
 (defvar *style* nil)
 (defvar *style-list* (make-hash-table))
+
+(defstruct elem-collector
+  elements)
 
 
 (defun defstyle (name  style)
@@ -45,6 +49,17 @@
 (defmacro with-viewport (v &rest body)
   `(let ((*viewport* ,v))
      ,@body))
+
+(defmacro with-clip (drawing &rest body)
+  `(progn
+     (let ((newclip nil))
+       (let ((*elements* (make-elem-collector)))
+         (progn ,@drawing)
+         (setf newclip (intern-resource
+                        (make-instance 'clip-resource
+                          :elements (elem-collector-elements *elements*)))))
+       (let ((*clip* newclip)) 
+         ,@body))))
 
 
 (defclass viewport ()
@@ -86,7 +101,7 @@
 
 
 (defun process (func &rest args)
-  (let ((*elements* nil)
+  (let ((*elements* (make-elem-collector :elements nil))
         (*pending* nil)
         (*clip* nil)
         (*element-index* 0)
@@ -99,7 +114,7 @@
     (apply func args)
     (loop while *pending* do
       (resolve (pop *pending*)))
-    (list (nreverse *elements*) *resources*)))
+    (list (nreverse (elem-collector-elements *elements*)) *resources*)))
 
 
 
@@ -124,6 +139,7 @@
         (tr1 *transform*)
         (c (or clip *clip*))
         (idx (incf *element-index*))
+        (local-elements *elements*)
         (v (or viewport *viewport*)))
     (flet ((build-element (p)
              (let ((tr (ecase (primitive-space p)
@@ -137,9 +153,10 @@
           (progn
             (setq element (delay
                            (first (push (build-element (deep-resolve primitive))
-                                        *elements*))))
+                                        (elem-collector-elements local-elements)))))
             (push element *pending*))
-          (setq element (first (push (build-element primitive) *elements*))))
+          (setq element (first (push (build-element primitive)
+                                     (elem-collector-elements local-elements)))))
       (when name
         (setf (gethash (cons name v) *names*) element))
       element)))
