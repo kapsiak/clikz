@@ -294,12 +294,10 @@
 
 
 (defun path-frame (path u &key (by :arclength) (up (vec-4 0 1 0 0)))
-  
   (let* ((point (path-point path u :by by))
          (tangent (normalize (path-tangent path u :by by)))
          (normal (frame-normal tangent up))
          (b (cross-3 (xyz tangent) (xyz normal))))
-    (format t "Path point for ~,2f is ~s~%" u point)
     (values point tangent normal (vec-4 (vec-x b) (vec-y b) (vec-z b) 0))))
 
 (defun path-points (path)
@@ -392,7 +390,8 @@
                        for u = (/ (coerce i 'double-float) steps)
                        with cur-vec = nil
                        collect
-                       (multiple-value-bind (pt tangent normal) (path-frame path u :up up)
+                       (multiple-value-bind (pt tangent normal)
+                           (path-frame path u :up up :by :fraction)
                          (setf cur-vec (funcall func u))
                          (v+ pt
                              (v+ (scale-vec  (vec-x cur-vec) tangent)
