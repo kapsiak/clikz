@@ -2,19 +2,19 @@
 
 (defgeneric init-backend (backend))
 (defgeneric finalize-backend (backend))
-(defgeneric supports-p (backend feature))
-(defgeneric render-element (backend type element))
 (defgeneric render-resource (backend resource))
 (defgeneric render-math (backend text))
 
-(defmacro make-render-for-type (l &rest body)
-  `(defmethod render-element ((backend ,(car l)) (type (eql ,(second l))) element)
-     ,@body))
+(defgeneric render-primitive (backend primitive element)
+  (:documentation "Draw PRIMITIVE, taking transform, style and clip from ELEMENT."))
+
+(defmethod render-primitive ((backend t) (primitive primitive) element)
+  (declare (ignore element))
+  (warn "Backend ~s does not support ~s; element skipped."
+        backend (class-name (class-of primitive))))
 
 (defun element-cull-p (element)
-  (and (eql (element-face-side element) :back)
-       (getf (element-params element) :cull t)))
-
+  (primitive-cull-p (element-primitive element) element))
 
 (defun sort-elements (elements)
   (let ((groups (make-hash-table :test #'eq))
@@ -27,7 +27,7 @@
         (push e (gethash vp groups))))
     (loop for vp in (nreverse viewport-order)
           append (stable-sort
-                  (remove-if #'element-cull-p
+                  (remove-if (lambda (e) (primitive-cull-p (element-primitive e) e))
                              (sort (nreverse (gethash vp groups))
                                    #'< :key #'element-index))
                   #'< :key #'element-depth))))
@@ -40,7 +40,4 @@
                  (declare (ignore k))
                  (render-resource backend r)) resources))
     (dolist (element (sort-elements elements))
-      (if (supports-p backend (element-type element))
-          (render-element backend (element-type element) element)
-          (warn "Backend ~s does not support ~s; element skipped."
-                backend (element-type element))))))
+      (render-primitive backend (element-primitive element) element))))

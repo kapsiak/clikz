@@ -10,14 +10,14 @@
                (:file "util")
                (:file "color")
 
+               (:file "primitives")
                (:file "elements")
                (:file "resource")
                (:file "core")
                (:file "anchors")
-               (:file "primitives")
 
-               (:file "drawing/shapes")
                (:file "drawing/paths")
+               (:file "drawing/shapes")
                (:file "drawing/surfaces")
 
                (:file "backend")

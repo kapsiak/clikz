@@ -54,7 +54,7 @@
   (funcall func object))
 
 (defmethod deep-walk (func (object cons))
-  (cons (funcall func (first object))
+  (cons (deep-walk func (first object))
         (deep-walk func (rest object))))
 
 

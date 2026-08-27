@@ -2,7 +2,11 @@
 
 (defparameter *path-tolerance* 1d-4)
 
-(defclass path ()
+(define-primitive path (:world)
+  geometry)
+
+
+(defclass curve ()
   ((segments     :initarg :segments  :reader path-segments)))
 
 
@@ -20,28 +24,8 @@
    (p2 :initarg :p2 :reader bezier-p2)
    (p3 :initarg :p3 :reader bezier-p3)))
 
-
-(defun path-closed-p (path)
-  (let ((segs (path-segments path)))
-    (and (> 1 (length segs))
-         (<  (magnitude (v- (segment-point (car segs) 0.0d0)
-                            (segment-point (car (last segs)) 1.0d0)))
-             +epsilon+))))
-
-
-(defun make-path (segments &key closed)
-  (make-instance 'path :segments 
-                 (if (not closed)
-                     segments
-                     (append segments
-                             (list (make-instance 'path-segment-line
-                                     :start (segment-point (car (last segments)) 1)
-                                     :end (segment-point (first segments) 0)))))))
-
-
-
-(defmethod deep-walk (func (object path))
-  (make-instance 'path
+(defmethod deep-walk (func (object curve))
+  (make-instance 'curve
     :segments (deep-walk func (path-segments object))))
 
 (defmethod deep-walk (func (object path-segment-line))
@@ -55,6 +39,26 @@
     :p1 (deep-walk func (bezier-p1 object))
     :p2 (deep-walk func (bezier-p2 object))
     :p3 (deep-walk func (bezier-p3 object))))
+
+(defun path-closed-p (path)
+  (let ((segs (path-segments path)))
+    (and (> (length segs) 1)
+         (<  (magnitude (v- (segment-point (car segs) 0.0d0)
+                            (segment-point (car (last segs)) 1.0d0)))
+             +epsilon+))))
+
+
+(defun make-path (segments &key closed)
+  (make-instance 'curve :segments
+                 (if (not closed)
+                     segments
+                     (append segments
+                             (list (make-instance 'path-segment-line
+                                     :start (segment-point (car (last segments)) 1d0)
+                                     :end (segment-point (first segments) 0d0)))))))
+
+
+
 
 
 (defgeneric segment-point (segment u))
@@ -262,7 +266,8 @@
   (multiple-value-bind (idx local seg)
       (path-segment-at-param path
                              (path-param-at path
-                                            (* u (length (path-segments path)))
+                                            u
+                                            ;; (* u (length (path-segments path)))
                                             :by by ))
     (declare (ignore idx))
     (segment-point seg local)))
@@ -294,12 +299,13 @@
          (tangent (normalize (path-tangent path u :by by)))
          (normal (frame-normal tangent up))
          (b (cross-3 (xyz tangent) (xyz normal))))
+    (format t "Path point for ~,2f is ~s~%" u point)
     (values point tangent normal (vec-4 (vec-x b) (vec-y b) (vec-z b) 0))))
 
 (defun path-points (path)
   (loop for seg in (path-segments path)
         append (list (segment-point seg 0d0)
-                     (segment-point seg 0.5)
+                     (segment-point seg 0.5d0)
                      (segment-point seg 1d0))))
 
 (defun path->commands (path)
@@ -415,50 +421,31 @@
       (error "Paths have different structure"))
     (make-path (mapcar (lambda (x y) (segment-morph x y u)) segs-start segs-end))))
 
-
-(defun path-anchor (path)
-  (lambda (key &rest args)
+(defmethod primitive-anchor ((p path) key &rest args)
+  (let ((curve (geometry p)))
     (ecase key
-      (:start (path-point (deep-resolve path) 0d0))
-      (:end   (path-point (deep-resolve path) 1d0))
-      ((:center :midway) (path-point (deep-resolve path) 0.5d0))
-      (:at (path-point (deep-resolve path)
-                       (first args)
-                       :by (or (second args) :fraction))))))
+      (:start (path-point curve 0d0))
+      (:end   (path-point curve 1d0))
+      ((:center :midway) (path-point curve 0.5d0))
+      (:at (path-point curve (first args) :by (or (second args) :fraction))))))
 
-(defmethod primitive-centroid ((kind (eql :path)) params)
-  (centroid-of-points (path-points (getf params :path))))
+(defmethod primitive-centroid ((p path))
+  (centroid-of-points (path-points (geometry p))))
 
-
-
-
-
-
-
-
-
-
-
-
+(defmethod primitive-sample ((p path) &key (steps 64))
+  (path-resample (geometry p) steps))
 
 (defun draw-path (points &key closed name style)
-  (let ((p (path-from-points points :closed closed)))
-    (emit :path
-          (list :path p
-                :name name :style (merge-style *style* style)
-                :anchor (path-anchor p)))))
-
-(defun draw-segment (start end &key name style)
-  (emit :segment
-        (list :start start :end end)
+  (emit (make-instance 'path :geometry (path-from-points points :closed closed))
         :name name :style (merge-style *style* style)))
 
-(defun draw-polyline (points &key closed name style)
-  (emit :polyline
-        (list :points points :closed closed)
-        :name name
-        :style (merge-style *style* style)))
+(defun draw-segment (start end &key name style)
+  (emit (make-instance 'segment :start start :end end)
+        :name name :style (merge-style *style* style)))
 
+(defun draw-polyline (points &key name style)
+  (emit (make-instance 'polyline :points points)
+        :name name :style (merge-style *style* style)))
 
 (defun make-parametric-func (func start end steps)
   (let ((step-size (/ (- end start) steps)))

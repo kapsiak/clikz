@@ -7,10 +7,9 @@
 (defun at (name &rest args)
   (with-current-viewport v
     (delay
-     (let* ((e (resolve-name name v))
-            (f (element-anchor e)))
-       (when f 
-         (mv-* (element-transform e) (apply f args)))))))
+     (let ((e (resolve-name name v)))
+       (mv-* (element-transform e)
+             (apply #'element-anchor-point e args))))))
 
 (defun toward (a b)
   (with-current-viewport v
@@ -18,15 +17,13 @@
      (let* ((elem-a (resolve-name a v))
             (elem-b (resolve-name b v))
             (center-a (mv-* (element-transform elem-a)
-                            (funcall (element-anchor elem-a) :center)))
+                            (element-anchor-point elem-a :center)))
             (center-b (mv-* (element-transform elem-b)
-                            (funcall (element-anchor elem-b) :center)))
+                            (element-anchor-point elem-b :center)))
             (world-dir (v- center-b center-a))
             (local-dir (mv-* (invert-4 (element-transform elem-a)) world-dir)))
-       (unless (element-boundary elem-a)
-         (error "Element ~s has no boundary function." a))
        (mv-* (element-transform elem-a)
-             (funcall (element-boundary elem-a) local-dir))))))
+             (element-boundary-point elem-a local-dir))))))
 
 (defun between (place1 place2 u)
   (delay
@@ -40,15 +37,14 @@
 (defun shifted-by (name by &rest args)
   (with-current-viewport v
     (delay
-     (let* ((e (resolve-name name v))
-            (f (element-anchor e)))
-       (when f 
-         (v+ by
-             (mv-* (element-transform e) (apply f args))))))))
+     (let ((e (resolve-name name v)))
+       (v+ by
+           (mv-* (element-transform e)
+                 (apply #'element-anchor-point e args)))))))
 
 
 (defun path-of (name &optional viewport)
-  (getf-elem (resolve-name name viewport) :path))
+  (geometry (element-primitive (resolve-name name viewport))))
 
 (defun path-length-at (name)
   (with-current-viewport v

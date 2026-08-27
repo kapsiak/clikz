@@ -1,5 +1,24 @@
 (in-package :quickdraw)
 
+(define-primitive face (:world :exact-under :any)
+  points normal back-style (cull :initform t))
+
+
+(defmethod primitive-centroid ((p face))
+  (centroid-of-polygon (points p)))
+
+(defmethod primitive-face-side ((p face) element)
+  (let ((n (normal p)))
+    (when n
+      (let* ((eye (elem->eye element))
+             (nz (vec-z (mv-* eye (vec-4 (vec-x n) (vec-y n) (vec-z n) 0)))))
+        (if (> nz 0) :front :back)))))
+
+(defmethod primitive-cull-p ((p face) element)
+  (and (cull p)
+       (eql (primitive-face-side p element) :back)))
+
+
 (defun sample-surface (f u0 u1 steps-u v0 v1 steps-v)
   (let ((u-step (/ (- u1 u0) steps-u))
         (v-step (/ (- v1 v0) steps-v)))
@@ -16,13 +35,11 @@
 
 (defun draw-surface-wire (grid &key style)
   (loop for row in grid
-        do (emit :polyline
-                 (list :points row :closed nil)
+        do (emit (make-instance 'polyline :points row)
                  :style (merge-style *style* style)))
   (loop for j from 0 below (length (first grid))
-        do (emit :polyline
-                 (list :points (loop for row in grid collect (nth j row))
-                       :closed nil)
+        do (emit (make-instance 'polyline
+                   :points (loop for row in grid collect (nth j row)))
                  :style (merge-style *style* style))))
 
 (defun draw-surface-faces (grid &key style back-style (cull (not back-style)))
@@ -34,13 +51,12 @@
                  for p10 = (nth (1+ j) row)
                  for p11 = (nth (1+ j) next)
                  for p01 = (nth j next)
-                 do (emit :face
-                          (list :points (list p00 p10 p11 p01)
-                                :normal (quad-normal p00 p10 p01)
-                                :back-style (and back-style
-                                                 (merge-style *style* back-style))
-                                :cull cull
-                                )
+                 do (emit (make-instance 'face
+                            :points (list p00 p10 p11 p01)
+                            :normal (quad-normal p00 p10 p01)
+                            :back-style (and back-style
+                                             (merge-style *style* back-style))
+                            :cull cull)
                           :style (merge-style *style* style)))))
 
 

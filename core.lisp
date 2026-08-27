@@ -99,7 +99,6 @@
     (apply func args)
     (loop while *pending* do
       (resolve (pop *pending*)))
-    (print (length *elements*))
     (list (nreverse *elements*) *resources*)))
 
 
@@ -119,31 +118,29 @@
       (progn (mv-* *transform* (car coords)))
       (mv-* *transform* (apply #'vec-dir coords))))
 
-(defun emit (type params
-             &key transform viewport style clip name  anchor boundary)
+(defun emit (primitive &key transform viewport style clip name)
   (let (element
         (s (or style *style*))
         (tr1 *transform*)
         (c (or clip *clip*))
         (idx (incf *element-index*))
         (v (or viewport *viewport*)))
-    (flet ((build-element (params)
-             (let* ((tr (ecase (primitive-frame type)
-                          (:intrinsic (or (resolve transform) (resolve tr1)))
-                          (:extrinsic +identity-4+)))
-                    (resolved (deep-resolve params)))
+    (flet ((build-element (p)
+             (let ((tr (ecase (primitive-space p)
+                         (:local (or (resolve transform) (resolve tr1)))
+                         (:world +identity-4+))))
                (make-instance 'element
-                 :type type
+                 :primitive p
                  :transform tr :viewport v :style s :clip c
-                 :anchor anchor :boundary boundary
-                 :index idx :params resolved))))
-      (if (or (deep-delayed-p params) (delayed-p transform) (delayed-p tr1))
+                 :index idx))))
+      (if (or (deep-delayed-p primitive) (delayed-p transform) (delayed-p tr1))
           (progn
             (setq element (delay
-                           (first (push (build-element params) *elements*))))
+                           (first (push (build-element (deep-resolve primitive))
+                                        *elements*))))
             (push element *pending*))
-          (progn
-            (setq element (first (push (build-element params) *elements*)))))
+          (setq element (first (push (build-element primitive) *elements*))))
       (when name
-        (setf (gethash (cons name v) *names*) element)))))
+        (setf (gethash (cons name v) *names*) element))
+      element)))
 
