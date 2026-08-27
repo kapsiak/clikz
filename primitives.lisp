@@ -17,6 +17,7 @@
 (defgeneric primitive-cull-p (primitive element))
 (defgeneric primitive-face-side (primitive element))
 
+
 (defmacro define-primitive (name (space &key (exact-under :affine)) &body slots)
   (flet ((force-cons (s) (if (consp s) s (list s))))
     `(progn
@@ -57,7 +58,9 @@
 (defgeneric primitive-sample (primitive &key steps))
 (defmethod primitive-sample ((p primitive) &key steps)
   (declare (ignore steps))
-  (error "No sampling defined"))
+  (error "No sampling defined for primitive ~s" (class-name (class-of p))))
+
+
 
 (defgeneric primitive-anchor (primitive key &rest args))
 (defmethod primitive-anchor ((p primitive) key &rest args)
@@ -70,7 +73,8 @@
   (error "No boundary defined"))
 
 (defgeneric primitive-extents (primitive))
-(defmethod primitive-extents ((p primitive)))
+(defmethod primitive-extents ((p primitive))
+  (primitive-sample p :steps 10))
 
 (defun centroid-of-points (points)
   (let ((n (length points)))
