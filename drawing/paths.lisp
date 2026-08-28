@@ -262,7 +262,7 @@
 
 
 
-(defun path-point (path u &key (by :arclength))
+(defun path-point (path u &key (by :fraction))
   (multiple-value-bind (idx local seg)
       (path-segment-at-param path
                              (path-param-at path
@@ -274,7 +274,7 @@
 
 
 
-(defun path-tangent (path u &key (by :arclength))
+(defun path-tangent (path u &key (by :fraction))
   (multiple-value-bind (idx local seg)
       (path-segment-at-param path (path-param-at path u :by by))
     (declare (ignore idx))
@@ -293,7 +293,7 @@
         (error 'zero-vector :vector tangent))))
 
 
-(defun path-frame (path u &key (by :arclength) (up (vec-4 0 1 0 0)))
+(defun path-frame (path u &key (by :fraction) (up (vec-4 0 1 0 0)))
   (let* ((point (path-point path u :by by))
          (tangent (normalize (path-tangent path u :by by)))
          (normal (frame-normal tangent up))
