@@ -1,5 +1,7 @@
 (in-package :quickdraw)
 
+(defparameter *page-frame-step-size* 1d-3)
+
 (defvar *elements* nil)
 (defvar *element-index* nil)
 (defvar *resource-index* nil)
@@ -67,9 +69,11 @@
          :type (array double-float (4 4))) ; 3D homogenous
    (proj :initarg :proj :reader viewport-proj
          :type (array double-float (4 4))) ; 3D homogenous
-   (placement :initarg :placement :reader viewport-placement
-              :type (array double-float (3 3)))) ; 2D homogenous
+   (placement :initarg :placement :reader viewport-placement?)) ; 2D homogenous
   (:default-initargs :view +ortho-z+ :proj +ortho-z+ :placement +placement-identity+))
+
+(defun viewport-placement (viewport)
+  (resolve (viewport-placement? viewport)))
 
 
 (defun make-page-viewport (&key (view +ortho-z+) (proj +ortho-z+)
@@ -89,7 +93,45 @@
         (format stream ":VIEW ~S ~% :PROJ: ~S :PLACEMENT ~S"
                 (if (slot-boundp obj 'view) (viewport-view obj) :unbound)
                 (if (slot-boundp obj 'proj) (viewport-proj obj) :unbound)
-                (if (slot-boundp obj 'placement) (viewport-placement obj) :unbound)))))
+                (if (slot-boundp obj 'placement) (viewport-placement? obj) :unbound)))))
+
+
+(defun viewport-project (viewport vec)
+  (mv-* (viewport-placement viewport)
+        (clip->page
+         (mv-* (mm-* (viewport-proj viewport) (viewport-view viewport))
+               vec))))
+
+
+(defun picture-placement (parent at along scale pivot flip-y)
+  (let* ((at (resolve at))
+         (along (resolve along))
+         (origin (viewport-project parent at))
+         (ang 0))
+    (when along
+      (let* ((tip (viewport-project parent
+                                    (v+ at (scale-vec *page-frame-step-size* along))))
+             (dx (- (vec-x tip) (vec-x origin)))
+             (dy (- (vec-y tip) (vec-y origin)))
+             (l (sqrt (+ (* dx dx) (* dy dy)))))
+        (unless (< l +epsilon+) (setf ang (acos  (/ dx l))))))
+    (mm-* (mat-3-translate (vec-x origin) (vec-y origin))
+          (mat-3-rot-z ang)
+          (mat-3-3 (list scale 0 0)
+                   (list 0 (if flip-y (- scale) scale)) 0)
+          (list 0 0 1)
+          (mat-3-translate (- (vec-x pivot)) (- (vec-y pivot))))))
+
+(defun make-picture-viewport (&key at along (scale 1d0) (pivot (vec-2 0 0))
+                                   (flip-y t) (parent *viewport*))
+  (let ((d (delay (picture-placement parent at along scale pivot flip-y))))
+    (push d *pending*)
+    (make-instance 'viewport :view +ortho-z+ :proj +ortho-z+ :placement d)))
+
+(defmacro with-page-picture ((&rest args) &body body)
+  `(let ((*viewport* (make-picture-viewport ,@args))
+         (*transform* +identity-4+))
+     ,@body))
 
 
 
