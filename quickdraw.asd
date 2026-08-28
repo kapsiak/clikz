@@ -19,6 +19,7 @@
                (:file "drawing/paths")
                (:file "drawing/shapes")
                (:file "drawing/surfaces")
+               (:file "drawing/markers")
 
                (:file "backend")
                (:file "backend-svg")))
