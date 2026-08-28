@@ -100,16 +100,18 @@
 
 
 
-(defun emit-projected-points (backend element tag points style)
+(defun emit-projected-points (element tag points style)
   (let* ((trans (elem->placement-func element))
-         (pts (mapcar (lambda (p) (point-to-pair (funcall trans p))) points)))
-    (svg-maybe-wrap element tag
-                    (append (list (attr "points" (format nil "~{~a~^ ~}" pts)))
-                            (style->list style)))))
+         (p (mapcar (lambda (p) (point-to-pair (funcall trans p))) points)))
+    (svg-maybe-wrap element
+                    tag
+                    (append
+                     (list (attr "points" (format nil "~{~a~^ ~}" p)))
+                     (style->list style)))))
 
 
 (defun render-sampled (backend primitive element)
-  (emit-projected-points backend element
+  (emit-projected-points element
                          "polyline" (primitive-sample primitive) (element-style element)))
 
 (defmethod render-primitive :around ((backend svg-backend) (p primitive) element)
@@ -133,10 +135,10 @@
          (style (if (and (eql side :back) (back-style p))
                     (back-style p)
                     (element-style element))))
-    (emit-projected-points backend element "polygon" (points p) style)))
+    (emit-projected-points element "polygon" (points p) style)))
 
 (defmethod render-primitive ((backend svg-backend) (p polyline) element)
-  (emit-projected-points backend element "polyline" (points p)
+  (emit-projected-points element "polyline" (points p)
                          (element-style element)))
 
 (defmethod render-primitive ((backend svg-backend) (p segment) element)
