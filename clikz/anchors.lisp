@@ -7,15 +7,15 @@
 (defun at (name &rest args)
   (with-current-viewport v
     (delay
-     (let ((e (resolve-name name v)))
+     (let ((e (resolve-element name v)))
        (mv-* (element-transform e)
              (apply #'element-anchor-point e args))))))
 
 (defun toward (a b)
   (with-current-viewport v
     (delay
-     (let* ((elem-a (resolve-name a v))
-            (elem-b (resolve-name b v))
+     (let* ((elem-a (resolve-element a v))
+            (elem-b (resolve-element b v))
             (center-a (mv-* (element-transform elem-a)
                             (element-anchor-point elem-a :center)))
             (center-b (mv-* (element-transform elem-b)
@@ -37,14 +37,14 @@
 (defun shifted-by (name by &rest args)
   (with-current-viewport v
     (delay
-     (let ((e (resolve-name name v)))
+     (let ((e (resolve-element name v)))
        (v+ by
            (mv-* (element-transform e)
                  (apply #'element-anchor-point e args)))))))
 
 
 (defun path-of (name &optional viewport)
-  (geometry (element-primitive (resolve-name name viewport))))
+  (geometry (element-primitive (resolve-element name viewport))))
 
 (defun path-length-at (name)
   (with-current-viewport v
@@ -64,4 +64,11 @@
      (multiple-value-bind (pt tangent normal)
          (path-frame (path-of name v) (resolve u) :by by :up up)
        (frame->transform pt tangent normal)))))
+
+
+
+(defun connect (a b &key arrow-start arrow-end)
+  (let ((p (draw-path (list (toward a b) (toward b a)))))
+    (when arrow-start (draw-path-marker  (resolve p) 0.0 :shape arrow-start))
+    (when arrow-end (draw-path-marker  (resolve p) 1.0 :shape arrow-end))))
 

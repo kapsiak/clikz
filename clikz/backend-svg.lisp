@@ -110,14 +110,14 @@
                      (style->list style)))))
 
 
-(defun render-sampled (backend primitive element)
+(defun render-sampled (primitive element)
   (emit-projected-points element
                          "polyline" (primitive-sample primitive) (element-style element)))
 
 (defmethod render-primitive :around ((backend svg-backend) (p primitive) element)
   (let ((e (if (element-exact-p element)
                (call-next-method)
-               (render-sampled backend p element))))
+               (render-sampled p element))))
     (if (svg-backend-rendering-defs backend)
         e
         (progn

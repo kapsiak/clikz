@@ -2,27 +2,27 @@
   :author "Charlie Kapsiak <charliekapsiak@gmail.com>"
   :depends-on (:alexandria :xmls)
   :serial t
-  :components ((:file "quickdraw-package")
+  :components ((:file "clikz/quickdraw-package")
 
-               (:file "linalg")
-               (:file "linalg-constants")
+               (:file "clikz/linalg")
+               (:file "clikz/linalg-constants")
 
-               (:file "util")
-               (:file "color")
+               (:file "clikz/util")
+               (:file "clikz/color")
 
-               (:file "primitives")
-               (:file "elements")
-               (:file "resource")
-               (:file "core")
-               (:file "anchors")
+               (:file "clikz/primitives")
+               (:file "clikz/elements")
+               (:file "clikz/resource")
+               (:file "clikz/core")
+               (:file "clikz/anchors")
 
-               (:file "drawing/paths")
-               (:file "drawing/shapes")
-               (:file "drawing/surfaces")
-               (:file "drawing/markers")
+               (:file "clikz/drawing/paths")
+               (:file "clikz/drawing/shapes")
+               (:file "clikz/drawing/surfaces")
+               (:file "clikz/drawing/markers")
 
-               (:file "backend")
-               (:file "backend-svg")))
+               (:file "clikz/backend")
+               (:file "clikz/backend-svg")))
 
 
 

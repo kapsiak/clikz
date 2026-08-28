@@ -43,6 +43,7 @@
 
 (defun draw-path-marker (name u &key (shape 'arrowhead) (size 10d0)
                                      (by :fraction) style)
+ (path-point-at name u :by by)
   (draw-marker shape
                :at (path-point-at name u :by by)
                :along (path-tangent-at name u :by by)

@@ -108,6 +108,7 @@
          (along (resolve along))
          (origin (viewport-project parent at))
          (ang 0))
+    (print along)
     (when along
       (let* ((tip (viewport-project parent
                                     (v+ at (scale-vec *page-frame-step-size* along))))
@@ -116,10 +117,10 @@
              (l (sqrt (+ (* dx dx) (* dy dy)))))
         (unless (< l +epsilon+) (setf ang (acos  (/ dx l))))))
     (mm-* (mat-3-translate (vec-x origin) (vec-y origin))
-          (mat-3-rot-z ang)
+          (mat-3-rot-z (rad->deg ang))
           (mat-3-3 (list scale 0 0)
-                   (list 0 (if flip-y (- scale) scale)) 0)
-          (list 0 0 1)
+                   (list 0 (if flip-y (- scale) scale) 0)
+                   (list 0 0 1))
           (mat-3-translate (- (vec-x pivot)) (- (vec-y pivot))))))
 
 (defun make-picture-viewport (&key at along (scale 1d0) (pivot (vec-2 0 0))
@@ -135,10 +136,12 @@
 
 
 
-(defun resolve-name (name &optional viewport)
-  (resolve (or (gethash (cons name  viewport) *names*)
-               (gethash (cons name  *viewport*) *names*)
-               (error "Bad key"))))
+(defun resolve-element (elem? &optional viewport)
+  (if (or (typep elem? 'element) (typep elem? 'delayed))
+      elem?
+      (resolve (or (gethash (cons elem?  viewport) *names*)
+                   (gethash (cons elem?  *viewport*) *names*)
+                   (error "Bad key")))))
 
 
 

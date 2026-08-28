@@ -485,3 +485,6 @@
 
 (defun magnitude (v)
   (sqrt (dot v v)))
+
+(defun rad->deg (v)
+  (/ (* 360  v  ) (* 2 pi)))
