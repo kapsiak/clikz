@@ -70,9 +70,8 @@
     (list (vec-4 (- hw) (- hh) 0 1)
           (vec-4 hw (- hh) 0 1)
           (vec-4 hw hh 0 1)
-          (vec-4 (- hw) hh 0 1))))
-
-
+          (vec-4 (- hw) hh 0 1)
+          (vec-4 (- hw) (- hh) 0 1))))
 
 (defun ellipse-bound (rx ry direction)
   (let* ((dx (/ (vec-x direction) rx)) (dy (/ (vec-y direction) ry))
@@ -93,13 +92,13 @@
 
 
 (defun ellipse-sample (rx ry steps)
-  (loop for i below steps
+  (loop for i to steps
         for th = (* 2 pi (/ i steps))
         collect (vec-4 (* rx (cos th)) (* ry (sin th)) 0 1)))
 
 
 (defmethod primitive-anchor ((p ellipse) key &rest args)
-                  (declare (ignore args))
+  (declare (ignore args))
   (ellipse-anchor (rx p) (ry p) key))
 
 (defmethod primitive-boundary ((p ellipse) direction)
@@ -109,7 +108,7 @@
   (ellipse-sample (rx p) (ry p)  steps))
 
 (defmethod primitive-anchor ((p circle) key &rest args)
-                  (declare (ignore args))
+  (declare (ignore args))
   (ellipse-anchor (r p) (r p) key))
 
 (defmethod primitive-boundary ((p circle) direction)
