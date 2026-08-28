@@ -364,6 +364,12 @@
    (list 0 0 1 z)
    (list 0 0 0 1)))
 
+(defun mat-3-translate (x y)
+  (mat-3-3
+   (list 1 0 x)
+   (list 0 1 y)
+   (list 0 0 1)))
+
 
 
 (defun flatten-2d ()
