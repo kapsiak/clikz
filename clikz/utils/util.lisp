@@ -8,9 +8,6 @@
   source)
 
 
-
-
-
 (define-condition circular-dependency (error)
   ((delayed :initarg :delayed :reader circular-dependency-delayed)
    (source :initarg :source :initform nil :reader circular-dependency-source))
@@ -77,3 +74,14 @@
 (defun clamp (val low high)
   (max low (min val high)))
 
+(defun hash-string (str)
+  (declare (optimize (speed 3) (safety 1))
+           (type string str))
+  (let ((hash 2166136261)
+        (prime 16777619))
+    (declare (type (unsigned-byte 32) hash prime))
+    (loop for char across str
+          for code = (char-code char)
+          do (setf hash (logand #xFFFFFFFF
+                                (* (logxor hash code) prime))))
+    hash))
