@@ -364,6 +364,13 @@
    (list 0 0 1 z)
    (list 0 0 0 1)))
 
+(defun mat-4-scale (x y z)
+  (mat-4-4
+   (list x 0 0 0)
+   (list 0 y 0 0)
+   (list 0 0 z 0)
+   (list 0 0 0 1)))
+
 (defun mat-3-translate (x y)
   (mat-3-3
    (list 1 0 x)
@@ -488,3 +495,6 @@
 
 (defun rad->deg (v)
   (/ (* 360  v  ) (* 2 pi)))
+
+(defun deg->rad (v)
+  (/ (* 2 pi v) 360d0))
