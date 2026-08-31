@@ -67,8 +67,4 @@
 
 
 
-(defun connect (a b &key arrow-start arrow-end)
-  (let ((p (draw-path (list (toward a b) (toward b a)))))
-    (when arrow-start (draw-path-marker  (resolve p) 0.0 :shape arrow-start))
-    (when arrow-end (draw-path-marker  (resolve p) 1.0 :shape arrow-end))))
 
