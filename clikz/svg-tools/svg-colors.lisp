@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defvar *svg-color-table* (make-hash-table :test 'equal))
 

@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 
 (defparameter *svg-coordinate-precision* 4)

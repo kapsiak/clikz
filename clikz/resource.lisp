@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defvar *resources* (make-hash-table :test #'equal))
 (defvar *resource-index* nil)

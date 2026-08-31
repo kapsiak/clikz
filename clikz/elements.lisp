@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 ;;;; An element is a primitive plus the ambient context captured when it was
 (defclass element ()

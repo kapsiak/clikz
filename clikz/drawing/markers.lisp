@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defun marker-inset (shape size)
   (* size (or (get shape 'marker-inset) 0d0)))

@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defgeneric init-backend (backend))
 (defgeneric finalize-backend (backend))

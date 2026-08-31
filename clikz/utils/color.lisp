@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (deftype unit-double ()
   '(double-float 0d0 1d0))

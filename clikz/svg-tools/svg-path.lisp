@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (esrap:defrule svg-digit (esrap:character-ranges (#\0 #\9)))
 

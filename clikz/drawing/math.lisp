@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defvar *math-size* 10d0)
 (defvar *math-cache-dir* (uiop:ensure-directory-pathname (merge-pathnames "clikzmath" (uiop:temporary-directory))))
@@ -30,11 +30,12 @@
 (defmethod primitive-centroid ((p glyphs))
   (centroid-of-points (primitive-sample p :steps 2)))
 
+
 (defun draw-math (text &key (size 10d0) name style)
   (let ((box (text-box text)))
     (with-transform (mat-4-scale size size size)
       (emit (make-instance 'glyphs
-              :paths (mapcar (lambda (c) (math-map-path c #'p))
+              :paths (mapcar (lambda (c) (call-path-points #'p c))
                              (text-box-paths box)))
             :name name :style (merge-style *style* style)))))
 
@@ -148,6 +149,5 @@
 
 (setf *text->svg-func* #'text->svg-latex)
 
-
-(math-parse-svg
- (funcall *text->svg-func* "$\\sqrt{\\alpha\\gamma\\omega}^{\frac{1}{2}}$"))
+(defun text-box (text)
+  (math-parse-svg (funcall *text->svg-func* text)))

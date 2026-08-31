@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defparameter +xy-plane-mat+ (on-plane-mat (vec-3 1 0 0)
                                            (vec-3 0 1 0)

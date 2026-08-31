@@ -1,8 +1,9 @@
-(asdf:defsystem :quickdraw
+(asdf:defsystem :clikz
   :author "Charlie Kapsiak <charliekapsiak@gmail.com>"
   :depends-on (:alexandria :xmls :esrap)
+  :in-order-to ((asdf:test-op (asdf:test-op :clikz/tests)))
   :serial t
-  :components ((:file "clikz/quickdraw-package")
+  :components ((:file "clikz/clikz-package")
 
                (:file "clikz/linalg")
                (:file "clikz/linalg-constants")
@@ -30,14 +31,4 @@
 
                (:file "clikz/backend")
                (:file "clikz/backend-svg")))
-
-
-
-
-
-
-
-
-
-
 

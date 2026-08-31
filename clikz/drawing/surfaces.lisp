@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (define-primitive face (:world :exact-under :any)
   points normal back-style (cull :initform t))

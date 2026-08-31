@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defmacro scope (args &rest body)
   (let ((x (getf args :x 0d0))

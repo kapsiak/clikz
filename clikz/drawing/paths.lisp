@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defparameter *path-tolerance* 1d-4)
 

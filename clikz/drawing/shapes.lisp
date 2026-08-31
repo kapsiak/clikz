@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (define-primitive rect (:local)
   (w :initform 0d0) (h :initform 0d0)

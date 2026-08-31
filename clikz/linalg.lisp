@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defconstant +epsilon+ 1d-9)
 
@@ -14,7 +14,7 @@
     (intern (format nil "~a-~{~d~^-~}~@[-~a~]" prefix
                     (remove-if #'not dims)
                     postfix)
-            :quickdraw)))
+            :clikz)))
 
 (defmacro make-matvec (n &optional m? (element-type 'double-float))
   (let ((m (or m? n)))

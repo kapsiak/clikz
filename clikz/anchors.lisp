@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defmacro with-current-viewport (v &rest body)
   `(let ((,v *viewport*))

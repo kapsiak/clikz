@@ -1,2 +1,0 @@
-(defpackage :quickdraw
-  (:use #:cl))

@@ -1,0 +1,2 @@
+(defpackage :clikz
+  (:use #:cl))

@@ -1,4 +1,4 @@
-(in-package :quickdraw)
+(in-package :clikz)
 
 (defparameter *page-frame-step-size* 1d-3)
 
