@@ -364,6 +364,7 @@
    (list 0 0 1 z)
    (list 0 0 0 1)))
 
+
 (defun mat-4-scale (x y z)
   (mat-4-4
    (list x 0 0 0)

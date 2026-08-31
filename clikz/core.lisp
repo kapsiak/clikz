@@ -4,11 +4,9 @@
 
 (defvar *elements* nil)
 (defvar *element-index* nil)
-(defvar *resource-index* nil)
 (defvar *pending* nil)
 (defvar *clip* nil)
 (defvar *element-index* nil)
-(defvar *resources* (make-hash-table :test #'equal))
 (defvar *names* (make-hash-table :test #'equal))
 (defvar *viewport* nil)
 (defvar *transform* +identity-4+)
@@ -55,7 +53,8 @@
 (defmacro with-clip (drawing &rest body)
   `(progn
      (let ((newclip nil))
-       (let ((*elements* (make-elem-collector)))
+       (let ((*elements* (make-elem-collector))
+             (*clip* nil))
          (progn ,@drawing)
          (setf newclip (intern-resource
                         (make-instance 'clip-resource
@@ -108,14 +107,13 @@
          (along (resolve along))
          (origin (viewport-project parent at))
          (ang 0))
-    (print along)
     (when along
       (let* ((tip (viewport-project parent
                                     (v+ at (scale-vec *page-frame-step-size* along))))
              (dx (- (vec-x tip) (vec-x origin)))
              (dy (- (vec-y tip) (vec-y origin)))
              (l (sqrt (+ (* dx dx) (* dy dy)))))
-        (unless (< l +epsilon+) (setf ang (acos  (/ dx l))))))
+        (unless (< l +epsilon+) (setf ang (atan dy dx)))))
     (mm-* (mat-3-translate (vec-x origin) (vec-y origin))
           (mat-3-rot-z (rad->deg ang))
           (mat-3-3 (list scale 0 0)

@@ -1,5 +1,8 @@
 (in-package :quickdraw)
 
+(defvar *resources* (make-hash-table :test #'equal))
+(defvar *resource-index* nil)
+
 
 (defclass resource ()
   ((id :initarg :id :accessor resource-id)))

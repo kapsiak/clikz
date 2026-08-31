@@ -30,7 +30,7 @@
 (defun style-val->string (value)
   (typecase value
     (resource  (svg-resource-ref value))
-    (color  (color-css value))
+    (color  (color->css value))
     (float  (format nil "~,vf" *svg-coordinate-precision* value))
     (real  (format nil "~,vf" *svg-coordinate-precision* (coerce value 'double-float)))
     (string value)
@@ -265,6 +265,6 @@
                     collect
                     `("stop"
                       (("offset" ,(format nil "~d%" (floor (* 100 (car stop)))))
-                       ("stop-color"  ,(color-css (cdr stop)))))))
+                       ("stop-color"  ,(color->css (cdr stop)))))))
           (svg-backend-defs backend))))
 

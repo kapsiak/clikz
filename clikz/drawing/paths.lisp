@@ -94,12 +94,14 @@
   (loop for s in (segments path)
         sum (segment-length s)))
 
-(defun call-path-points (path fn)
-  (deep-walk (lambda (v) (if (arrayp v) (funcall fn v) v)) path))
+(defun call-path-points (fn path)
+  (deep-walk (lambda (v)
+               (if (arrayp v) (funcall fn v) v))
+             path))
 
-(defun transform-path-points (path mat-4)
-  (call-path-points path
-                    (lambda (v) (mm-* v mat-4))))
+(defun transform-path-points (mat-4 path)
+  (call-path-points (lambda (v) (mv-* mat-4 v))
+                    path))
 
 
 (defmethod segment-length :around ((s path-segment))
