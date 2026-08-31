@@ -139,11 +139,10 @@
 
 (defun draw-regular-polygon (sides r &key name style place)
   (with-transform (if place (placement-transform place) +identity-4+)
-    (emit (make-instance 'path
-            :geometry (path-from-points
-                       (loop for i below sides
-                             for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
-                             collect (p (* r (cos theta))
-                                        (* r (sin theta))))
-                       :closed t))
+    (emit (path-from-points
+           (loop for i below sides
+                 for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
+                 collect (p (* r (cos theta))
+                            (* r (sin theta))))
+           :closed t)
           :name name :style (merge-style *style* style))))

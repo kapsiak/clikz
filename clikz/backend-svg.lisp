@@ -180,10 +180,9 @@
                                        (element->placement-mat element))))
                           (style->list (element-style element)))))
 
-(defmethod render-primitive ((backend svg-backend) (p path) element)
-  (let* ((commands (path->svg-commands (geometry p)))
-         (trans (elem->placement-func element))
-         (d nil))
+(defun svg-path-d (path trans)
+  (let ((commands (path->svg-commands path))
+        (d nil))
     (loop while commands do
       (let ((cmd (pop commands)))
         (ecase cmd
@@ -203,8 +202,21 @@
                                                (funcall trans p2)))
                       d)))
           (:Z (push "Z" d)))))
+    (format nil "~{~a~^ ~}" (nreverse d))))
+
+(defmethod render-primitive ((backend svg-backend) (p path) element)
+  (let ((trans (elem->placement-func element)))
     (svg-maybe-wrap element "path"
-                    (append (list (attr "d" (format nil "~{~a~^ ~}" (nreverse d))))
+                    (append (list (attr "d" (svg-path-d p trans)))
+                            (style->list (element-style element))))))
+
+(defmethod render-primitive ((backend svg-backend) (p glyphs) element)
+  (let ((trans (elem->placement-func element)))
+    (svg-maybe-wrap element "path"
+                    (append (list (attr "d" (format nil "~{~a~^ ~}"
+                                                    (mapcar (lambda (c)
+                                                              (svg-path-d c trans))
+                                                            (paths p)))))
                             (style->list (element-style element))))))
 
 (defmethod render-primitive ((backend svg-backend) (p label) element)

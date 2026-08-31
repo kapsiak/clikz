@@ -44,7 +44,7 @@
 
 
 (defun path-of (name &optional viewport)
-  (geometry (element-primitive (resolve-element name viewport))))
+  (element-primitive (resolve-element name viewport)))
 
 (defun path-length-at (name)
   (with-current-viewport v
