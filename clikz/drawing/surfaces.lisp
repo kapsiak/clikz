@@ -35,8 +35,13 @@
                                               (idx->u j)
                                               (idx->v i))))))))
 
-(defun quad-normal (p00 p10 p01)
-  (normalize (cross-3 (v- p10 p00) (v- p01 p00))))
+(defun quad-normal (p00 p10 p01 &optional p11)
+  (flet ((try (a b c)
+           (let ((n (cross-3 (v- b a) (v- c a))))
+             (unless (< (magnitude n) +epsilon+)
+               (normalize n)))))
+    (or (try p00 p10 p01)
+        (and p11 (try p11 p01 p10)))))
 
 (defun draw-surface-wire (grid &key style)
   (loop for row in grid
@@ -58,7 +63,7 @@
                  for p01 = (nth j next)
                  do (emit (make-instance 'face
                             :points (list p00 p10 p11 p01)
-                            :normal (quad-normal p00 p10 p01)
+                            :normal (quad-normal p00 p10 p01 p11)
                             :back-style (and back-style
                                              (merge-style *style* back-style))
                             :cull cull)
