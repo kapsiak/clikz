@@ -10,6 +10,7 @@
 (defvar *names* (make-hash-table :test #'equal))
 (defvar *viewport* nil)
 (defvar *transform* +identity-4+)
+(defvar *placement* +identity-4+)
 (defvar *style* nil)
 (defvar *style-list* (make-hash-table))
 
@@ -41,6 +42,16 @@
 (defmacro with-transform (transform &rest body)
   `(let ((*transform* (call-delayed #'mm-* *transform* ,transform )))
      ,@body))
+
+(defmacro with-placement (placement &body body)
+  `(let ((*placement* (call-delayed #'mm-* *placement* ,placement))
+         (*transform* +identity-4+))
+     ,@body))
+
+(defmacro with-at (at &body body)
+  `(if ,at
+       (with-placement (placement-transform ,at) ,@body)
+       (progn ,@body)))
 
 (defmacro with-style (style &rest body)
   `(let ((*style* (merge-style *style* ,style)))
@@ -116,9 +127,7 @@
         (unless (< l +epsilon+) (setf ang (atan dy dx)))))
     (mm-* (mat-3-translate (vec-x origin) (vec-y origin))
           (mat-3-rot-z (rad->deg ang))
-          (mat-3-3 (list scale 0 0)
-                   (list 0 (if flip-y (- scale) scale) 0)
-                   (list 0 0 1))
+          (mat-3-3-d scale (if flip-y (- scale) scale) 1)
           (mat-3-translate (- (vec-x pivot)) (- (vec-y pivot))))))
 
 (defun make-picture-viewport (&key at along (scale 1d0) (pivot (vec-2 0 0))
@@ -129,7 +138,8 @@
 
 (defmacro with-page-picture ((&rest args) &body body)
   `(let ((*viewport* (make-picture-viewport ,@args))
-         (*transform* +identity-4+))
+         (*transform* +identity-4+)
+         (*placement* +identity-4+))
      ,@body))
 
 
@@ -153,6 +163,7 @@
         (*names* (make-hash-table :test #'equal))
         (*viewport* (or *viewport* (make-page-viewport)))
         (*transform* +identity-4+)
+        (*placement* +identity-4+)
         (*style* nil))
     (apply func args)
     (loop while *pending* do
@@ -180,6 +191,7 @@
   (let (element
         (s (or style *style*))
         (tr1 *transform*)
+        (pl *placement*)
         (c (or clip *clip*))
         (idx (incf *element-index*))
         (local-elements *elements*)
@@ -190,9 +202,10 @@
                          (:world +identity-4+))))
                (make-instance 'element
                  :primitive p
-                 :transform tr :viewport v :style s :clip c
+                 :transform tr :placement (resolve pl)
+                 :viewport v :style s :clip c
                  :index idx))))
-      (if (or (deep-delayed-p primitive) (delayed-p transform) (delayed-p tr1))
+      (if (or (deep-delayed-p primitive) (delayed-p transform) (delayed-p tr1) (delayed-p pl))
           (progn
             (setq element (delay
                            (first (push (build-element (deep-resolve primitive))

@@ -4,15 +4,19 @@
 (defclass element ()
   ((primitive :initarg :primitive :reader element-primitive)
    (transform :initarg :transform :reader element-transform)
+   (placement :initarg :placement :reader element-placement :initform +identity-4+)
    (viewport :initarg :viewport :reader element-viewport)
    (style :initarg :style :reader element-style)
    (clip :initarg :clip :reader element-clip)
    (index :initarg :index :accessor element-index :initform 0)))
 
+(defun elem->world (elem)
+  (mm-* (element-placement elem) (element-transform elem)))
+
 (defun elem->eye (elem)
   (mm-*
    (viewport-view (element-viewport elem))
-   (element-transform elem)))
+   (elem->world elem)))
 
 (defun elem->clip (elem)
   (mm-*
@@ -84,9 +88,10 @@
   (if *print-readably*
       (call-next-method)
       (print-unreadable-object (obj stream :type t :identity t)
-        (format stream "~s :TRANSFORM ~s :VIEWPORT ~s :STYLE ~s :CLIP ~s"
+        (format stream "~s :TRANSFORM ~s :PLACEMENT ~s :VIEWPORT ~s :STYLE ~s :CLIP ~s"
                 (if (slot-boundp obj 'primitive) (element-primitive obj) :unbound)
                 (if (slot-boundp obj 'transform) (element-transform obj) :unbound)
+                (if (slot-boundp obj 'placement) (element-placement obj) :unbound)
                 (if (slot-boundp obj 'viewport) (element-viewport obj) :unbound)
                 (if (slot-boundp obj 'style) (element-style obj) :unbound)
                 (if (slot-boundp obj 'clip) (element-clip obj) :unbound)))))

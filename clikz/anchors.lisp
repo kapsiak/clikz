@@ -8,7 +8,7 @@
   (with-current-viewport v
     (delay
      (let ((e (resolve-element name v)))
-       (mv-* (element-transform e)
+       (mv-* (elem->world e)
              (apply #'element-anchor-point e args))))))
 
 (defun toward (a b)
@@ -16,13 +16,13 @@
     (delay
      (let* ((elem-a (resolve-element a v))
             (elem-b (resolve-element b v))
-            (center-a (mv-* (element-transform elem-a)
+            (center-a (mv-* (elem->world elem-a)
                             (element-anchor-point elem-a :center)))
-            (center-b (mv-* (element-transform elem-b)
+            (center-b (mv-* (elem->world elem-b)
                             (element-anchor-point elem-b :center)))
             (world-dir (v- center-b center-a))
-            (local-dir (mv-* (invert-4 (element-transform elem-a)) world-dir)))
-       (mv-* (element-transform elem-a)
+            (local-dir (mv-* (invert-4 (elem->world elem-a)) world-dir)))
+       (mv-* (elem->world elem-a)
              (element-boundary-point elem-a local-dir))))))
 
 (defun between (place1 place2 u)
@@ -39,7 +39,7 @@
     (delay
      (let ((e (resolve-element name v)))
        (v+ by
-           (mv-* (element-transform e)
+           (mv-* (elem->world e)
                  (apply #'element-anchor-point e args)))))))
 
 

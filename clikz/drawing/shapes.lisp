@@ -19,7 +19,8 @@
 (define-primitive label (:local :exact-under :any)
   (text :initform "")
   (align :initform :center)
-  (baseline :initform :middle))
+  (baseline :initform :middle)
+  (embed :initform nil))
 
 (defmethod primitive-sample ((p label) &key (steps 32))
   (declare (ignore steps))
@@ -117,28 +118,28 @@
 (defmethod primitive-sample ((p circle) &key (steps 32))
   (ellipse-sample (r p) (r p)  steps))
 
-(defun draw-rect (w h &key (rx 0d0) (ry 0d0) name style place)
-  (emit (make-instance 'rect :w w :h h :rx rx :ry ry)
-        :transform (when place (placement-transform place))
-        :name name :style (merge-style *style* style)))
+(defun draw-rect (w h &key (rx 0d0) (ry 0d0) name style at)
+  (with-at at
+    (emit (make-instance 'rect :w w :h h :rx rx :ry ry)
+          :name name :style (merge-style *style* style))))
 
-(defun draw-circle (r &key name style place)
-  (emit (make-instance 'circle :r r)
-        :transform (when place (placement-transform place))
-        :name name :style (merge-style *style* style)))
+(defun draw-circle (r &key name style at)
+  (with-at at
+    (emit (make-instance 'circle :r r)
+          :name name :style (merge-style *style* style))))
 
-(defun draw-ellipse (rx ry &key name style place)
-  (emit (make-instance 'ellipse :rx rx :ry ry)
-        :transform (when place (placement-transform place))
-        :name name :style (merge-style *style* style)))
+(defun draw-ellipse (rx ry &key name style at)
+  (with-at at
+    (emit (make-instance 'ellipse :rx rx :ry ry)
+          :name name :style (merge-style *style* style))))
 
-(defun draw-label (text &key (align :center) (baseline :middle) name style place)
-  (emit (make-instance 'label :text text :align align :baseline baseline)
-        :transform (when place (placement-transform place))
-        :name name :style (merge-style *style* style)))
+(defun draw-label (text &key (align :center) (baseline :middle) name style at)
+  (with-at at
+    (emit (make-instance 'label :text text :align align :baseline baseline)
+          :name name :style (merge-style *style* style))))
 
-(defun draw-regular-polygon (sides r &key name style place)
-  (with-transform (if place (placement-transform place) +identity-4+)
+(defun draw-regular-polygon (sides r &key name style at)
+  (with-at at
     (emit (path-from-points
            (loop for i below sides
                  for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
