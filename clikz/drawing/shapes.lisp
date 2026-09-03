@@ -63,8 +63,6 @@
                   (t (error 'zero-vector :vector direction)))))
     (vec-4 (* s dx) (* s dy) 0 1)))
 
-(defmethod primitive-closed-p ((p rect)) t)
-
 (defmethod primitive-sample ((p rect) &key steps)
   (declare (ignore steps))
   (let ((hw (/ (w p) 2d0)) (hh (/ (h p) 2d0)))
@@ -133,10 +131,6 @@
     (emit (make-instance 'ellipse :rx rx :ry ry)
           :name name :style (merge-style *style* style))))
 
-(defun draw-label (text &key (align :center) (baseline :middle) name style at)
-  (with-at at
-    (emit (make-instance 'label :text text :align align :baseline baseline)
-          :name name :style (merge-style *style* style))))
 
 (defun draw-regular-polygon (sides r &key name style at)
   (with-at at
@@ -147,3 +141,11 @@
                             (* r (sin theta))))
            :closed t)
           :name name :style (merge-style *style* style))))
+
+
+(defun draw-label (text &key (align :center) (baseline :middle) name style at)
+  (with-at at
+    (emit (make-instance 'label :text text :align align :baseline baseline)
+          :name name :style (merge-style *style* style))))
+
+;;; Need more shapes, ie annulus, annular arcs, stars, etc, 

@@ -84,14 +84,3 @@
     (vec-3 (/ (vec-x vec) w) (/ (vec-y vec) w) 1)))
 
 
-(defmethod print-object ((obj element) stream)
-  (if *print-readably*
-      (call-next-method)
-      (print-unreadable-object (obj stream :type t :identity t)
-        (format stream "~s :TRANSFORM ~s :PLACEMENT ~s :VIEWPORT ~s :STYLE ~s :CLIP ~s"
-                (if (slot-boundp obj 'primitive) (element-primitive obj) :unbound)
-                (if (slot-boundp obj 'transform) (element-transform obj) :unbound)
-                (if (slot-boundp obj 'placement) (element-placement obj) :unbound)
-                (if (slot-boundp obj 'viewport) (element-viewport obj) :unbound)
-                (if (slot-boundp obj 'style) (element-style obj) :unbound)
-                (if (slot-boundp obj 'clip) (element-clip obj) :unbound)))))

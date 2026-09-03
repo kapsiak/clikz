@@ -96,15 +96,6 @@
                         (list 0 0 1))))
 
 
-(defmethod print-object ((obj viewport) stream)
-  (if *print-readably*
-      (call-next-method)
-      (print-unreadable-object (obj stream :type t :identity t)
-        (format stream ":VIEW ~S ~% :PROJ: ~S :PLACEMENT ~S"
-                (if (slot-boundp obj 'view) (viewport-view obj) :unbound)
-                (if (slot-boundp obj 'proj) (viewport-proj obj) :unbound)
-                (if (slot-boundp obj 'placement) (viewport-placement? obj) :unbound)))))
-
 
 (defun viewport-project (viewport vec)
   (mv-* (viewport-placement viewport)
