@@ -1,17 +1,22 @@
 (in-package :clikz)
 
-;;;; An element is a primitive plus the ambient context captured when it was
 (defclass element ()
   ((primitive :initarg :primitive :reader element-primitive)
-   (transform :initarg :transform :reader element-transform)
-   (placement :initarg :placement :reader element-placement :initform +identity-4+)
+   (transform :initarg :transform :reader element-transform) ; How the element is tranformed in model space
+   (placement :initarg :placement :reader element-placement :initform +identity-4+) ; How the element should is placed relative to its parent frame
    (viewport :initarg :viewport :reader element-viewport)
    (style :initarg :style :reader element-style)
    (clip :initarg :clip :reader element-clip)
+   (layer :initarg :layer :reader element-layer :initform 0)
    (index :initarg :index :accessor element-index :initform 0)))
 
+
+;; The transform chain looks like
+;; model -> transform -> placement -> clip -> project -> page-placement
+
 (defun elem->world (elem)
-  (mm-* (element-placement elem) (element-transform elem)))
+  (mm-* (element-placement elem)
+        (element-transform elem)))
 
 (defun elem->eye (elem)
   (mm-*
@@ -64,8 +69,12 @@
   (vec-z (element-centroid-eye element)))
 
 
-(defun element-anchor-point (element key &rest args)
-  (apply #'primitive-anchor (element-primitive element) key args))
+(defun element-anchor-point (element key-or-ang &rest args)
+  (if (and (numberp key-or-ang) (null args))
+      (element-boundary-point
+       element
+       (vec-dir (cos (deg->rad key-or-ang)) (sin (deg->rad key-or-ang)) 0))
+      (apply #'primitive-anchor (element-primitive element) key-or-ang args)))
 
 (defun element-boundary-point (element direction)
   (primitive-boundary (element-primitive element) direction))
@@ -80,6 +89,7 @@
 
 
 (defun clip->page (vec)
+  "Standard opengl like de-homogenization"
   (let ((w (vec-w vec)))
     (vec-3 (/ (vec-x vec) w) (/ (vec-y vec) w) 1)))
 

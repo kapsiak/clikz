@@ -36,12 +36,17 @@
                                               (idx->v i))))))))
 
 (defun quad-normal (p00 p10 p01 &optional p11)
+  "Kinda janky..."
   (flet ((try (a b c)
            (let ((n (cross-3 (v- b a) (v- c a))))
              (unless (< (magnitude n) +epsilon+)
                (normalize n)))))
     (or (try p00 p10 p01)
         (and p11 (try p11 p01 p10)))))
+
+
+;; really need to add some mechanism for grouping at the output, ie svg data-*
+;; attributes.
 
 (defun draw-surface-wire (grid &key style)
   (loop for row in grid

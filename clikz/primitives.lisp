@@ -19,6 +19,8 @@
 
 
 (defmacro define-primitive (name (space &key (exact-under :affine)) &body slots)
+  "Make it easier to define primitives.
+We need to keep track of slots to get automatic delayed resolution."
   (flet ((force-cons (s) (if (consp s) s (list s))))
     `(progn
        (defclass ,name (,(ecase space
@@ -106,3 +108,69 @@
 
 
 
+;; Bounding box
+(defstruct box
+  (min-x 0d0 :type double-float) (max-x 0d0 :type double-float)
+  (min-y 0d0 :type double-float) (max-y 0d0 :type double-float)
+  (min-z 0d0 :type double-float) (max-z 0d0 :type double-float))
+
+(defun box-width (box) (- (box-max-x box) (box-min-x box)))
+(defun box-height (box) (- (box-max-y box) (box-min-y box)))
+(defun box-depth (box) (- (box-max-z box) (box-min-z box)))
+(defun box-center (box)
+  (vec-3  (/ (+ (box-min-x box) (box-max-x box)) 2d0)
+          (/ (+ (box-min-y box) (box-max-y box)) 2d0)
+          (/ (+ (box-min-z box) (box-max-z box)) 2d0)))
+
+(defun box-dims-as-vec (box)
+  (vec-3
+   (box-width box)
+   (box-height box)
+   (box-depth box)))
+
+(defun box-center-to-x (box)
+  (vec-3 (/ (box-width box) 2d0) 0d0 0d0))
+
+(defun box-center-to-y (box)
+  (vec-3 0d0 (/ (box-height box) 2d0) 0))
+
+(defun box-center-to-z (box)
+  (vec-3  0d0 0d0 (/ (box-depth box) 2d0)))
+
+;; Cnvert the extent point into a coarder bounding box
+;; Less precise but suitable for general layout 
+(defun points->bound-box (points)
+  (if (null points)
+      (make-box)
+      (loop for pt in points
+            minimize (vec-x pt) into min-x maximize (vec-x pt) into max-x
+            minimize (vec-y pt) into min-y maximize (vec-y pt) into max-y
+            minimize (vec-z pt) into min-z maximize (vec-z pt) into max-z
+            finally (return (make-box :min-x (to-df min-x)
+                                      :max-x (to-df max-x)
+                                      :min-y (to-df min-y)
+                                      :max-y (to-df max-y)
+                                      :min-z (to-df min-z)
+                                      :max-z (to-df max-z))))))
+
+(defun box-anchor (box key)
+  (flet ((add (&rest funcs)
+           (reduce #'v+
+                   (mapcar (lambda (f)
+                             (if (consp f)
+                                 (scale-vec (coerce (car f) 'double-float)
+                                            (funcall (second f) box))
+                                 (funcall f box)))
+                           funcs))))
+    (ecase key
+      (:center (box-center box))
+      (:top (add #'box-center #'box-center-to-y))
+      (:bottom (add #'box-center '(-1 box-center-to-y)))
+      (:right (add #'box-center #'box-center-to-x))
+      (:left (add #'box-center '(-1 box-center-to-x)))
+      (:front (add #'box-center #'box-center-to-z))
+      (:back (add #'box-center '(-1 box-center-to-z))))))
+
+
+(defun primtive-bound-box (primitive)
+  (points->bound-box (primitive-extents primitive)))

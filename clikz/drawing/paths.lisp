@@ -1,8 +1,11 @@
 (in-package :clikz)
 
+
 (defparameter *path-tolerance* 1d-4)
 
+;; Path drawing is quite complicated
 (define-primitive path (:world)
+  "Paths are made up of segments which can be either lines, arcs, or beziers (like with svg)."
   segments)
 
 
@@ -70,6 +73,7 @@
     :sweep  (deep-walk func (arc-sweep object))))
 
 (defun path-closed-p (path)
+  "Closedness is deduced from geometry"
   (let ((segs (segments path)))
     (and segs
          (<  (magnitude
@@ -79,6 +83,7 @@
 
 
 (defun make-path (segments &key closed)
+  "Use closed only if not already closed."
   (make-instance 'path
     :segments
     (if (not closed)
@@ -87,7 +92,6 @@
                 (list (make-instance 'path-segment-line
                         :start (segment-point (car (last segments)) 1d0)
                         :end (segment-point (first segments) 0d0)))))))
-
 
 
 (defun path-length (path)
@@ -661,7 +665,7 @@
   (lambda (u) (vec-2 0d0 (* amplitude (sin (* 2 pi cycles u))))))
 
 
-(defun coil-profile (&key (cycles 8) (lead 0.5d0) (amplitude 1.0d0))
+(defun decorate-coil (&key (cycles 8) (lead 0.5d0) (amplitude 1.0d0))
   (lambda (u)
     (let ((th (* 2 pi cycles u)))
       (vec-2 (* amplitude (* lead (- (cos th) 1d0)) (sin th))))))
@@ -690,21 +694,17 @@
 (defmethod primitive-sample ((p path) &key (steps 64))
   (path-resample p steps))
 
-(defun draw-path (points &key closed name style)
-  (emit (path-from-points points :closed closed)
-        :name name :style (merge-style *style* style)))
+(define-drawing draw-path (points &key closed)
+  (path-from-points points :closed closed))
 
-(defun draw-curve (path &key name style)
-  "Emit an already-built PATH -- the entry point for the curve combinators."
-  (emit path :name name :style (merge-style *style* style)))
+(define-drawing draw-curve (path)
+  path)
 
-(defun draw-segment (start end &key name style)
-  (emit (make-instance 'segment :start start :end end)
-        :name name :style (merge-style *style* style)))
+(define-drawing draw-segment (start end)
+  (make-instance 'segment :start start :end end))
 
-(defun draw-polyline (points &key name style)
-  (emit (make-instance 'polyline :points points)
-        :name name :style (merge-style *style* style)))
+(define-drawing draw-polyline (points)
+  (make-instance 'polyline :points points))
 
 (defun make-parametric-func (func start end steps)
   (let ((step-size (/ (- end start) steps)))
@@ -715,7 +715,7 @@
   (loop for i from 0 to steps
         append (list (if (= i 0) :M :L) (funcall func i))))
 
-(defun draw-path-parametric (func start end steps &key closed name style)
+(defun draw-path-parametric (func start end steps &key closed name style at layer)
   (let ((f (make-parametric-func func start end steps)))
     (draw-path (loop for i from 0 to steps collect (funcall f i))
-               :closed closed :name name :style style)))
+               :closed closed :name name :style style :at at :layer layer)))

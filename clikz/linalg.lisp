@@ -2,12 +2,6 @@
 
 (defconstant +epsilon+ 1d-9)
 
-(define-condition zero-vector (error)
-  ((vec :initarg :vector :reader zero-vector-vec))
-  (:report (lambda (c s)
-             (format s "Vector is zero: ~s" (zero-vector-vec c)))))
-
-
 (eval-when (:compile-toplevel)
   (defparameter *linalg-optimize* '((speed 0) (safety 3) (debug 3)))
   (defun symbol-for-dims (prefix postfix &rest dims)
@@ -15,6 +9,13 @@
                     (remove-if #'not dims)
                     postfix)
             :clikz)))
+
+(define-condition zero-vector (error)
+  ((vec :initarg :vector :reader zero-vector-vec))
+  (:report (lambda (c s)
+             (format s "Vector is zero: ~s" (zero-vector-vec c)))))
+
+
 
 (defmacro make-matvec (n &optional m? (element-type 'double-float))
   (let ((m (or m? n)))
@@ -297,10 +298,34 @@
 
 (make-linalg 4)
 
+
+
+(deftype vec-comp ()
+  '(member :x :y :z :w))
+
+
+(defun vec-comp (v d)
+  (ecase d
+    (:x (vec-x v))
+    (:y (vec-y v))
+    (:z (vec-z v))
+    (:w (vec-w v))))
+
+(defun (setf vec-comp) (val v d)
+  (ecase d
+    (:x (setf (vec-x v) val))
+    (:y (setf (vec-y v) val))
+    (:z (setf (vec-z v) val))
+    (:w (setf (vec-w v) val))))
+
 (defun vec-x (vec) (aref vec 0))
+(defun (setf vec-x) (val vec) (setf (aref vec 0) val) vec)
 (defun vec-y (vec) (aref vec 1))
+(defun (setf vec-y) (val vec) (setf (aref vec 1) val) vec)
 (defun vec-z (vec) (aref vec 2))
+(defun (setf vec-z) (val vec) (setf (aref vec 2) val) vec)
 (defun vec-w (vec) (aref vec 3))
+(defun (setf vec-w) (val vec) (setf (aref vec 3) val) vec)
 
 
 

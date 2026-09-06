@@ -1,5 +1,7 @@
 (in-package :clikz)
 
+;; Buncha shapes
+
 (define-primitive rect (:local)
   (w :initform 0d0) (h :initform 0d0)
   (rx :initform 0d0) (ry :initform 0d0))
@@ -16,19 +18,8 @@
 (define-primitive polyline (:world :exact-under :any)
   points)
 
-(define-primitive label (:local :exact-under :any)
-  (text :initform "")
-  (align :initform :center)
-  (baseline :initform :middle)
-  (embed :initform nil))
-
-(defmethod primitive-sample ((p label) &key (steps 32))
-  (declare (ignore steps))
-  (list (vec-4 0 0 0 1)))
-
 (defmethod primitive-centroid ((p segment))
   (centroid-of-points (list (start p) (end p))))
-
 
 (defmethod primitive-sample ((p segment) &key (steps 32))
   (declare (ignore steps))
@@ -64,6 +55,7 @@
     (vec-4 (* s dx) (* s dy) 0 1)))
 
 (defmethod primitive-sample ((p rect) &key steps)
+  "Corners"
   (declare (ignore steps))
   (let ((hw (/ (w p) 2d0)) (hh (/ (h p) 2d0)))
     (list (vec-4 (- hw) (- hh) 0 1)
@@ -79,7 +71,8 @@
     (vec-4 (/ (vec-x direction) m) (/ (vec-y direction) m) 0 1)))
 
 (defun ellipse-anchor (rx ry key)
-  (let ((d (/ (sqrt 2d0) 2)))
+  "The composite directions are at 45 degrees"
+  (let ((d (/ 1d0 (sqrt 2d0))))
     (ecase key
       (:center (vec-4 0 0 0 1))
       (:north (vec-4 0 ry 0 1)) (:south (vec-4 0 (- ry) 0 1))
@@ -91,7 +84,7 @@
 
 
 (defun ellipse-sample (rx ry steps)
-  (loop for i to steps
+  (loop for i to steps ; Include end to ensure closed
         for th = (* 2 pi (/ i steps))
         collect (vec-4 (* rx (cos th)) (* ry (sin th)) 0 1)))
 
@@ -116,36 +109,23 @@
 (defmethod primitive-sample ((p circle) &key (steps 32))
   (ellipse-sample (r p) (r p)  steps))
 
-(defun draw-rect (w h &key (rx 0d0) (ry 0d0) name style at)
-  (with-at at
-    (emit (make-instance 'rect :w w :h h :rx rx :ry ry)
-          :name name :style (merge-style *style* style))))
+(define-drawing draw-rect (w h &key (rx 0d0) (ry 0d0))
+  (make-instance 'rect :w (to-df w) :h (to-df h)
+                       :rx (to-df rx) :ry (to-df ry)))
 
-(defun draw-circle (r &key name style at)
-  (with-at at
-    (emit (make-instance 'circle :r r)
-          :name name :style (merge-style *style* style))))
+(define-drawing draw-circle (r)
+  (make-instance 'circle :r (to-df r)))
 
-(defun draw-ellipse (rx ry &key name style at)
-  (with-at at
-    (emit (make-instance 'ellipse :rx rx :ry ry)
-          :name name :style (merge-style *style* style))))
+(define-drawing draw-ellipse (rx ry)
+  (make-instance 'ellipse :rx (to-df rx) :ry (to-df ry)))
 
-
-(defun draw-regular-polygon (sides r &key name style at)
-  (with-at at
-    (emit (path-from-points
-           (loop for i below sides
-                 for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
-                 collect (p (* r (cos theta))
-                            (* r (sin theta))))
-           :closed t)
-          :name name :style (merge-style *style* style))))
+(define-drawing draw-regular-polygon (sides r)
+  (path-from-points
+   (loop for i below sides ; include end
+         for theta = (+ (/ (* 2 pi i) sides) (/ pi 2))
+         collect (p (* r (cos theta))
+                    (* r (sin theta))))
+   :closed t))
 
 
-(defun draw-label (text &key (align :center) (baseline :middle) name style at)
-  (with-at at
-    (emit (make-instance 'label :text text :align align :baseline baseline)
-          :name name :style (merge-style *style* style))))
-
-;;; Need more shapes, ie annulus, annular arcs, stars, etc, 
+;;; Need more shapes, ie annulus, annular arcs, stars, etc,

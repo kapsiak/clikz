@@ -312,3 +312,11 @@
 
 (defun parse-svg-path (data)
   (svg-commands->paths (parse-svg-path-commands data)))
+
+(defun xml-attr (node attr &optional default)
+  (or (xmls:xmlrep-attrib-value attr node nil)
+   default))
+
+(defun xml-attr-num (node attr &optional (default 0d0))
+  (parse-svg-num (xml-attr node attr default)))
+
