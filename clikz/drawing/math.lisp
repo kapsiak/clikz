@@ -267,16 +267,17 @@
              (:bottom d))
            0d0 0d0)))
 
+
 (defun text-size (&optional style)
   (to-df (or (getf (or style *style*) :font-size) *pt-to-world*)))
 
-(defun measure-text (text &key size raw style)
-  (let ((box (text-box (if raw text (escape-tex text))))
-        (em (to-df (or size (text-size style)))))
-    (values (* em (width box))
-            (* em (height box))
-            (* em (depth box)))))
+(defun measure-text (text &key size style)
+  (let ((em (to-df (or size (text-size style)))))
+    (values (* em (width text))
+            (* em (height text))
+            (* em (depth text)))))
 
+;; Clean this up, think there is some stuff missing here
 (defun text-style (style)
   (merge-style style
                '(:fill "black" :stroke-width 0.001)))
