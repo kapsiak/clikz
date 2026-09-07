@@ -171,6 +171,5 @@ We need to keep track of slots to get automatic delayed resolution."
       (:front (add #'box-center #'box-center-to-z))
       (:back (add #'box-center '(-1 box-center-to-z))))))
 
-
 (defun primtive-bound-box (primitive)
   (points->bound-box (primitive-extents primitive)))
