@@ -28,6 +28,7 @@
                (:file "clikz/svg-tools/svg-path")
 
                (:file "clikz/drawing/math")
+               (:file "clikz/node")
 
                (:file "clikz/backend")
                (:file "clikz/backend-svg")))
