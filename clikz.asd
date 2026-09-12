@@ -11,11 +11,13 @@
                (:file "clikz/utils/util")
                (:file "clikz/utils/process")
                (:file "clikz/utils/color")
+               (:file "clikz/svg-tools/svg-colors")
 
                (:file "clikz/primitives")
                (:file "clikz/elements")
                (:file "clikz/resource")
                (:file "clikz/core")
+               (:file "clikz/styles")
                (:file "clikz/anchors")
 
                (:file "clikz/drawing/paths")
