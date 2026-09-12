@@ -5,7 +5,6 @@
 
 ;; Path drawing is quite complicated
 (define-primitive path (:world)
-  "Paths are made up of segments which can be either lines, arcs, or beziers (like with svg)."
   segments)
 
 
