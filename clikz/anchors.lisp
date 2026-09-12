@@ -1,17 +1,45 @@
 (in-package :clikz)
 
 (defmacro with-current-viewport (v &rest body)
+  "Capture current viewport. Use for possible delayed objects."
   `(let ((,v *viewport*))
      ,@body))
+
+
+(defun get-anchor-in-world (name viewport args)
+  (let ((e (resolve-element name viewport)))
+    (mv-* (elem->world e)
+          (apply #'element-anchor-point e (or args '(:center))))))
+
+(defun get-boundary-in-world (name viewport d)
+  (let ((e (resolve-element name viewport)))
+    (mv-* (elem->world e)
+          (apply #'element-boundary-point e d))))
 
 (defun at (name &rest args)
   (with-current-viewport v
     (delay
-     (let ((e (resolve-element name v)))
-       (mv-* (elem->world e)
-             (apply #'element-anchor-point e args))))))
+     (get-anchor-in-world name v args))))
+
+
+(defmacro gen-rel-pos-fun (fname dir default-anchor)
+  `(defun ,fname (name &rest args)
+     (let ((sep (getf *style* :sep))
+           (args (or args (list ,default-anchor))))
+       (with-current-viewport v
+         (delay
+          (v+ (scale-vec (coerce sep 'double-float) ,dir)
+              (get-anchor-in-world name v args)))))))
+
+
+(gen-rel-pos-fun above (vec-dir 0 1) :north)
+(gen-rel-pos-fun below (vec-dir 0 -1) :south)
+(gen-rel-pos-fun right (vec-dir 1 0) :east)
+(gen-rel-pos-fun left (vec-dir -1 0) :west)
+
 
 (defun toward (a b)
+  "Determine point on boundary closest to other object, then invert to model frame"
   (with-current-viewport v
     (delay
      (let* ((elem-a (resolve-element a v))
