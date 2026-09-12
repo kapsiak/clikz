@@ -63,11 +63,10 @@
   (or (find-program program)
       (error 'external-program-not-found :program (string program))))
 
-(defun run-external (program args &key directory input ignore-error-status)
+(defun run-system (program args &key directory input ignore-error-status)
   "Run external program raising error if the exit code is nonzero. Optionally use input for standard input."
   (let* ((path (program-or-err program))
          (args (mapcar #'princ-to-string args))
-         (command (cons (string program) args))
          (directory (and directory (uiop:ensure-directory-pathname directory))))
     (flet ((run (in)
              (uiop:run-program (cons (uiop:native-namestring path) args)
@@ -84,18 +83,19 @@
                (not ignore-error-status)
                (not (eql code 0)))
           (error 'external-program-error
-                 :command command :exit-code code
+                 :command (cons (string program) args)
+                 :exit-code code
                  :output out :errors err
                  :directory directory))
         (values out err code)))))
 
 
-(defun make-temporary-directory (&optional (prefix "clikz"))
-  (loop for attempt below 1024
-        for name = (format nil "~a-~d-~d-~d" (or prefix "cltmp")
-                           (get-universal-time)
+(defun make-temporary-directory (&optional (prefix "clikztmp"))
+  (loop for i below 1024
+        for name = (format nil "~a-~d-~d-~d"
+                           prefix
                            (random 1000000)  
-                           attempt) ; This sould be sufficiently unique for any practical use case.
+                           i) ; This sould be sufficiently unique for any practical use case.
         for dir = (uiop:ensure-directory-pathname
                    (merge-pathnames name (uiop:temporary-directory)))
         unless (uiop:directory-exists-p dir)
