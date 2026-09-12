@@ -94,6 +94,14 @@
 
 
 
+(defun latex-wrap-env (env str)
+  (format nil "\\begin{~a}~a\\end{~a}" env str env))
+
+(defun text-center (str)
+  (latex-wrap-env "center" str))
+   
+    
+
 (defun escape-tex (text)
   (with-output-to-string (out)
     (let ((math-mode nil)
@@ -213,11 +221,11 @@
                    (t (mapc #'walk (xmls:node-children node)))))))
       (walk root))
     (mapcar (lambda (p)
-                            (call-path-points
-                             (lambda (v) (vec-p (* scale (vec-x v))
-                                                (* scale (vec-y v))))
-                             p))
-                          (nreverse paths))))
+              (call-path-points
+               (lambda (v) (vec-p (* scale (vec-x v))
+                                  (* scale (vec-y v))))
+               p))
+            (nreverse paths))))
 
 (defun text->svg->text (text)
   (let* ((doc (build-document text))
@@ -231,13 +239,13 @@
     (unless (uiop:file-exists-p dvi-path)
       (with-open-file (s tex-path :direction :output :if-exists :supersede)
         (write-string doc s))
-      (run-external *latex-program*
+      (run-system *latex-program*
                     (list "-interaction=nonstopmode" tex-path)
                     :directory *math-cache-dir*
                     :ignore-error-status t))
 
     (unless (uiop:file-exists-p svg-path)
-      (run-external *dvisvgm-program*
+      (run-system *dvisvgm-program*
                     `("--no-fonts" "--exact-bbox" "-o" ,svg-path
                                    ,dvi-path)
                     :directory *math-cache-dir*))
@@ -246,9 +254,9 @@
         :paths (math-parse-svg (with-open-file (s svg-path)
                                  (uiop:read-file-string s)))
         :text-str text
-        :width (/ width +TEX-POINTS-PER-POINT+)
-        :height (/ height +TEX-POINTS-PER-POINT+)
-        :depth (/ depth +TEX-POINTS-PER-POINT+)))))
+        :width (/ width (* +TEX-POINTS-PER-POINT+ *PT-TO-WORLD*))
+        :height (/ height  (* +TEX-POINTS-PER-POINT+ *PT-TO-WORLD*))
+        :depth (/ depth (* +TEX-POINTS-PER-POINT+ *PT-TO-WORLD*))))))
 
 
 
@@ -282,10 +290,10 @@
   (merge-style style
                '(:fill "black" :stroke-width 0.001)))
 
-(defun draw-text (text &key size (align :left) (baseline :base) name style at)
+
+(defun draw-text-prim (prim &key size (align :left) (baseline :base) name style at)
   (let* ((style (merge-style *style* style))
          (size (to-df (or size (text-size style))))
-         (prim (text->svg->text text))
          (offset (text-align-offset prim align baseline)))
     (with-at at
       (with-transform (mm-* (mat-4-scale size size size)
@@ -294,3 +302,5 @@
               :name name
               :style (text-style style))))))
 
+(defun draw-text (text &rest args)
+  (apply #'draw-text-prim (text->svg->text text) args))
