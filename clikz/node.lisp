@@ -91,8 +91,8 @@
                                           :layer layer)))
                   (when text
                     (draw-text-prim text :size em 
-                                    :align :center :baseline :middle
-                                    :style style))
+                                         :align :center :baseline :middle
+                                         :style style))
                   
                   element)))))))))
 
